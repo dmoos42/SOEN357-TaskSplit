@@ -127,7 +127,7 @@ export function TaskInput() {
             {/* File Upload Drop Zone - Replaces Difficulty Selector */}
             <div className="mb-8">
               <label className="text-[13px] text-muted-foreground mb-2 block flex items-center gap-1.5">
-                <Upload size={13} /> Upload Assignment (Optional)
+                <Upload size={13} /> Upload Assignment
               </label>
               <input
                 ref={fileInputRef}

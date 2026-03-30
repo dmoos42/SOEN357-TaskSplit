@@ -23,6 +23,12 @@ export function Dashboard() {
 
   const ongoingTasks = tasks.filter(t => t.subTasks.some(st => !st.completed));
 
+  // Active steps metrics
+  const activeStepsTotal = ongoingTasks.reduce((acc, t) => acc + t.subTasks.length, 0);
+  const activeStepsDone = ongoingTasks.reduce((acc, t) => acc + t.subTasks.filter(st => st.completed).length, 0);
+  const activeStepsRemaining = activeStepsTotal - activeStepsDone;
+  const activeProgressPct = activeStepsTotal > 0 ? (activeStepsDone / activeStepsTotal) * 100 : 0;
+
   return (
     <div className="max-w-md mx-auto px-5 pt-12 pb-4" style={{ fontFamily: "'DM Sans', 'Inter', sans-serif" }}>
       {/* Gentle Greeting - Emotional Design */}
@@ -30,7 +36,7 @@ export function Dashboard() {
         <p className="text-muted-foreground text-[14px] mb-1">{greeting}</p>
         <h1 className="text-[26px] text-foreground mb-1">You're doing great <span role="img" aria-label="sparkle">✨</span></h1>
         <p className="text-muted-foreground text-[13px] mb-6">
-          {totalCompleted} of {totalSubTasks} steps completed across {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+          {activeStepsRemaining} step{activeStepsRemaining !== 1 ? 's' : ''} remaining across {ongoingTasks.length} task{ongoingTasks.length !== 1 ? 's' : ''}
         </p>
       </motion.div>
 
@@ -41,15 +47,15 @@ export function Dashboard() {
       >
         <div className="flex items-center justify-between mb-3">
           <span className="text-[13px] text-primary flex items-center gap-1.5">
-            <Sparkles size={14} /> Today's Progress
+            <Sparkles size={14} /> <span style={{ fontWeight: 600 }}>{Math.round(activeProgressPct)}%</span> Completed
           </span>
-          <span className="text-[13px] text-primary">{todaySessions.length} session{todaySessions.length !== 1 ? 's' : ''}</span>
+          <span className="text-[13px] text-primary">{activeStepsDone}/{activeStepsTotal} steps</span>
         </div>
         <div className="w-full h-2 bg-primary/15 rounded-full overflow-hidden">
           <motion.div
             className="h-full bg-primary rounded-full"
             initial={{ width: 0 }}
-            animate={{ width: `${totalSubTasks > 0 ? (totalCompleted / totalSubTasks) * 100 : 0}%` }}
+            animate={{ width: `${activeProgressPct}%` }}
             transition={{ delay: 0.3, duration: 0.8, ease: 'easeOut' }}
           />
         </div>
