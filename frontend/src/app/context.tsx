@@ -6,6 +6,11 @@ interface AppState {
   sessions: FocusSession[];
   activeSubTask: SubTask | null;
   activeTaskName: string;
+  isGenerating: boolean;
+  generatedPlan: Omit<SubTask, 'parentTaskId'>[] | null;
+  generatedTaskName: string;
+  generatedDueDate: string;
+  generatedFile: File | null;
   addTask: (task: Task) => void;
   updateTask: (taskId: string, subTasks: SubTask[]) => void;
   updateTaskDueDate: (taskId: string, dueDate: string) => void;
@@ -13,6 +18,8 @@ interface AppState {
   addSession: (session: FocusSession) => void;
   getNextSubTask: () => { subTask: SubTask; taskName: string } | null;
   deleteTask: (taskId: string) => void; 
+  startGeneration: (taskName: string, file: File | null, dueDate: string) => Promise<void>;
+  resetGeneration: () => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -28,6 +35,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const savedSessions = localStorage.getItem('tasksplit_sessions');
     return savedSessions ? JSON.parse(savedSessions) : [];
   });
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedPlan, setGeneratedPlan] = useState<Omit<SubTask, 'parentTaskId'>[] | null>(null);
+  const [generatedTaskName, setGeneratedTaskName] = useState('');
+  const [generatedDueDate, setGeneratedDueDate] = useState('');
+  const [generatedFile, setGeneratedFile] = useState<File | null>(null);
 
   // 2. Whenever tasks or sessions change, save them back to localStorage automatically
   useEffect(() => {
@@ -73,19 +86,84 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [tasks]);
 
+  const startGeneration = useCallback(async (taskName: string, file: File | null, dueDate: string) => {
+    if (!taskName.trim()) return;
+    setIsGenerating(true);
+    setGeneratedTaskName(taskName);
+    setGeneratedDueDate(dueDate);
+    setGeneratedFile(file);
+
+    try {
+      const formData = new FormData();
+      formData.append('taskName', taskName);
+      if (file) {
+        formData.append('file', file);
+      }
+
+      const response = await fetch('http://localhost:3000/api/generate-plan', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch plan from server');
+
+      const aiData = await response.json();
+      const formattedSubTasks: Omit<SubTask, 'parentTaskId'>[] = aiData.map((step: any, index: number) => ({
+        id: `gen-${Date.now()}-${index}`,
+        name: step.name,
+        difficulty: step.difficulty,
+        estimatedMinutes: step.estimatedMinutes,
+        completed: false,
+        microSteps: step.microSteps || [],
+      }));
+
+      setGeneratedPlan(formattedSubTasks);
+    } catch (error) {
+      console.error("Error generating tasks:", error);
+      alert("Oops! The AI needs a quick break. Please try again.");
+      const GENERATED_SUBTASKS = (name: string): Omit<SubTask, 'parentTaskId'>[] => [
+        { id: `gen-${Date.now()}-1`, name: `Review ${name} requirements`, difficulty: 'Easy', estimatedMinutes: 15, completed: false },
+        { id: `gen-${Date.now()}-2`, name: 'Research & gather resources', difficulty: 'Medium', estimatedMinutes: 40, completed: false },
+        { id: `gen-${Date.now()}-3`, name: 'Create initial outline', difficulty: 'Easy', estimatedMinutes: 20, completed: false },
+        { id: `gen-${Date.now()}-4`, name: 'Draft first section', difficulty: 'Medium', estimatedMinutes: 35, completed: false },
+        { id: `gen-${Date.now()}-5`, name: 'Draft remaining sections', difficulty: 'Hard', estimatedMinutes: 50, completed: false },
+        { id: `gen-${Date.now()}-6`, name: 'Review & revise', difficulty: 'Medium', estimatedMinutes: 30, completed: false },
+        { id: `gen-${Date.now()}-7`, name: 'Final proofread & submit', difficulty: 'Easy', estimatedMinutes: 15, completed: false },
+      ];
+      setGeneratedPlan(GENERATED_SUBTASKS(taskName));
+    } finally {
+      setIsGenerating(false);
+    }
+  }, []);
+
+  const resetGeneration = useCallback(() => {
+    setIsGenerating(false);
+    setGeneratedPlan(null);
+    setGeneratedTaskName('');
+    setGeneratedDueDate('');
+    setGeneratedFile(null);
+  }, []);
+
   return (
     <AppContext.Provider value={{ 
       tasks, 
       sessions, 
       activeSubTask: null, 
       activeTaskName: '', 
+      isGenerating,
+      generatedPlan,
+      generatedTaskName,
+      generatedDueDate,
+      generatedFile,
       addTask, 
       updateTask, 
       updateTaskDueDate,
       completeSubTask, 
       addSession, 
       getNextSubTask, 
-      deleteTask
+      deleteTask,
+      startGeneration,
+      resetGeneration
     }}>
       {children}
     </AppContext.Provider>

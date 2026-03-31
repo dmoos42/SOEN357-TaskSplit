@@ -18,14 +18,12 @@ const GENERATED_SUBTASKS = (name: string): Omit<SubTask, 'parentTaskId'>[] => [
 
 export function TaskInput() {
   const navigate = useNavigate();
-  const { addTask } = useApp();
+  const { addTask, startGeneration, resetGeneration, isGenerating, generatedPlan, generatedTaskName, generatedDueDate, generatedFile } = useApp();
   const [taskName, setTaskName] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [generated, setGenerated] = useState<Omit<SubTask, 'parentTaskId'>[] | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editSubTasks, setEditSubTasks] = useState<Omit<SubTask, 'parentTaskId'>[]>([]);
 
@@ -42,65 +40,27 @@ export function TaskInput() {
   };
 
   const handleGenerate = async () => {
-    if (!taskName.trim()) return;
-    setIsGenerating(true);
-
-    try {
-      // 1. Prepare the data to send to the backend
-      const formData = new FormData();
-      formData.append('taskName', taskName);
-      if (uploadedFile) {
-        formData.append('file', uploadedFile);
-      }
-
-      // 2. Call Node.js server
-      const response = await fetch('http://localhost:3000/api/generate-plan', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch plan from server');
-
-      const aiData = await response.json();
-
-      // 3. Map the AI's generic JSON into our exact TypeScript SubTask format
-      const formattedSubTasks: Omit<SubTask, 'parentTaskId'>[] = aiData.map((step: any, index: number) => ({
-        id: `gen-${Date.now()}-${index}`,
-        name: step.name,
-        difficulty: step.difficulty,
-        estimatedMinutes: step.estimatedMinutes,
-        completed: false,
-        microSteps: step.microSteps || [],
-      }));
-
-      setGenerated(formattedSubTasks);
-    } catch (error) {
-      console.error("Error generating tasks:", error);
-      alert("Oops! The AI needs a quick break. Please try again.");
-      // Fallback to the hardcoded list if the server is down
-      setGenerated(GENERATED_SUBTASKS(taskName));
-    } finally {
-      setIsGenerating(false);
-    }
+    await startGeneration(taskName, uploadedFile, dueDate);
   };
 
   const handleSave = () => {
     const taskId = `task-${Date.now()}`;
-    const subTasks: SubTask[] = (showEdit ? editSubTasks : generated!).map(st => ({ ...st, parentTaskId: taskId }));
+    const subTasks: SubTask[] = (showEdit ? editSubTasks : generatedPlan!).map(st => ({ ...st, parentTaskId: taskId }));
     const task: Task = {
       id: taskId,
-      name: taskName,
-      dueDate,
+      name: generatedTaskName,
+      dueDate: generatedDueDate,
       difficulty: 'Medium',
       subTasks,
       createdAt: new Date().toISOString().split('T')[0],
     };
     addTask(task);
+    resetGeneration();
     navigate('/');
   };
 
   const openEdit = () => {
-    setEditSubTasks([...(generated || [])]);
+    setEditSubTasks([...(generatedPlan || [])]);
     setShowEdit(true);
   };
 
@@ -133,7 +93,7 @@ export function TaskInput() {
       </div>
 
       <AnimatePresence mode="wait">
-        {!generated ? (
+        {!generatedPlan ? (
           <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, x: -20 }}>
             {/* Task Name Input */}
             <div className="mb-5">
@@ -246,7 +206,7 @@ export function TaskInput() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-[18px]">Your Action Plan</h2>
-                <p className="text-[13px] text-muted-foreground">{generated.length} steps &middot; ~{formatTime(generated.reduce((a, s) => a + s.estimatedMinutes, 0))} total</p>
+                <p className="text-[13px] text-muted-foreground">{generatedPlan.length} steps &middot; ~{formatTime(generatedPlan.reduce((a, s) => a + s.estimatedMinutes, 0))} total</p>
               </div>
               <button
                 onClick={openEdit}
@@ -260,7 +220,7 @@ export function TaskInput() {
             <div className="relative ml-3">
               <div className="absolute left-[7px] top-3 bottom-3 w-[2px] bg-primary/20 rounded-full" />
               <div className="space-y-3">
-                {(showEdit ? editSubTasks : generated).map((st, i) => (
+                {(showEdit ? editSubTasks : generatedPlan).map((st, i) => (
                   <motion.div
                     key={st.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -305,11 +265,11 @@ export function TaskInput() {
             </button>
 
             <div className="flex justify-center gap-4 mt-3">
-              <button onClick={() => setGenerated(null)} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2">
+              <button onClick={() => resetGeneration()} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2">
                 Start Over
               </button>
               <button 
-                onClick={() => { setGenerated(null); handleGenerate(); }} 
+                onClick={() => { resetGeneration(); handleGenerate(); }} 
                 className="text-[13px] text-primary hover:text-primary/80 transition-colors py-2"
               >
                 Regenerate
