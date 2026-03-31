@@ -13,6 +13,7 @@ export function AssignmentDetails() {
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [draftDueDate, setDraftDueDate] = useState('');
   const [draftName, setDraftName] = useState('');
 
@@ -37,10 +38,14 @@ export function AssignmentDetails() {
   }
 
   const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this entire assignment?')) {
-      deleteTask(task.id);
-      navigate('/');
-    }
+    setShowDeleteConfirm(true);
+    setShowActionsMenu(false);
+  };
+
+  const confirmDelete = () => {
+    deleteTask(task.id);
+    setShowDeleteConfirm(false);
+    navigate('/');
   };
 
   const handleSaveDueDate = () => {
@@ -400,6 +405,49 @@ export function AssignmentDetails() {
           </div>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center px-5"
+            onClick={() => setShowDeleteConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-sm rounded-2xl bg-card border border-border p-5 shadow-[0_14px_40px_rgba(0,0,0,0.2)]"
+            >
+              <div className="w-10 h-10 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center mb-3">
+                <Trash2 size={18} />
+              </div>
+              <h3 className="text-[17px] text-foreground mb-1">Delete assignment?</h3>
+              <p className="text-[13px] text-muted-foreground mb-5">
+                This will remove <span className="text-foreground">{task.name}</span> and all its steps. This action cannot be undone.
+              </p>
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 rounded-xl bg-secondary text-foreground py-2.5 text-[13px] hover:bg-secondary/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 rounded-xl bg-destructive text-destructive-foreground py-2.5 text-[13px] hover:opacity-90 transition-opacity"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
