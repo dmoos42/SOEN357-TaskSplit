@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Pause, Play, Square, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context';
+import { formatTime } from '../store';
 import { motion } from 'motion/react';
 
 export function FocusSession() {
   const location = useLocation();
   const navigate = useNavigate();
   const { completeSubTask, addSession } = useApp();
-  const { subTask, taskName } = (location.state as any) || {};
+  const { subTask, taskName, taskId } = (location.state as any) || {};
 
   const totalSeconds = (subTask?.estimatedMinutes || 25) * 60;
   const [remaining, setRemaining] = useState(totalSeconds);
@@ -30,8 +31,11 @@ export function FocusSession() {
   }, [isRunning, completed]);
 
   const progress = 1 - remaining / totalSeconds;
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
+  
+  // UPDATED: Calculate Hours, Minutes, and Seconds
+  const displayHours = Math.floor(remaining / 3600);
+  const displayMinutes = Math.floor((remaining % 3600) / 60);
+  const displaySeconds = remaining % 60;
 
   // Circular progress
   const radius = 130;
@@ -54,7 +58,7 @@ export function FocusSession() {
   }, [subTask, completeSubTask, addSession]);
 
   const handleStop = () => {
-    navigate('/');
+    navigate(taskId ? `/assignment/${taskId}` : '/');
   };
 
   if (!subTask) {
@@ -81,12 +85,13 @@ export function FocusSession() {
           </motion.div>
           <h1 className="text-[24px] text-foreground mb-2">Great work!</h1>
           <p className="text-muted-foreground text-[14px] mb-2">{subTask.name}</p>
-          <p className="text-muted-foreground text-[13px] mb-8">You completed a {subTask.estimatedMinutes}-minute focus session</p>
+          {/* UPDATED COMPLETED SCREEN MESSAGE */}
+          <p className="text-muted-foreground text-[13px] mb-8">You completed a {formatTime(subTask.estimatedMinutes)} focus session</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(taskId ? `/assignment/${taskId}` : '/')}
             className="bg-primary text-primary-foreground rounded-xl px-8 py-3.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] active:scale-[0.98] transition-all"
           >
-            Back to Dashboard
+            Back to Assignment
           </button>
         </motion.div>
       </div>
@@ -120,8 +125,9 @@ export function FocusSession() {
           </svg>
           {/* Timer display */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
+            {/* UPDATED: Dynamic HH:MM:SS logic */}
             <span className="text-[52px] text-foreground tabular-nums tracking-tight" style={{ fontWeight: 300 }}>
-              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+              {displayHours > 0 ? `${displayHours}:` : ''}{String(displayMinutes).padStart(2, '0')}:{String(displaySeconds).padStart(2, '0')}
             </span>
             <span className="text-muted-foreground text-[13px] mt-1">
               {isRunning ? 'Focus time' : 'Paused'}

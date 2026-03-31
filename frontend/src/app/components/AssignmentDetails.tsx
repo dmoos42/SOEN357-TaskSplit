@@ -1,40 +1,14 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Calendar, Clock, Play, CheckCircle2, Sparkles, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Play, CheckCircle2, Sparkles, ChevronDown, Trash2 } from 'lucide-react';
 import { useApp } from '../context';
-import { DIFFICULTY_COLORS } from '../store';
+import { DIFFICULTY_COLORS, formatTime } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
-
-// AI-generated micro-steps keyed by subtask id, with fallback generation
-const MICRO_STEPS: Record<string, string[]> = {
-  s1: ['Open Google Scholar and university database', 'Search 4–5 keywords related to your topic', 'Save at least 3 peer-reviewed sources', 'Skim abstracts and highlight key findings'],
-  s2: ['Review assignment rubric and requirements', 'Draft section headings (Intro, Body, Conclusion)', 'Add bullet-point notes under each heading', 'Confirm outline covers all rubric criteria'],
-  s3: ['Write a hook sentence to engage the reader', 'State the purpose and scope of the report', 'Briefly outline the structure of the paper', 'Proofread the intro for clarity and flow'],
-  s4: ['Describe your research approach clearly', 'Explain data collection methods used', 'Justify why this methodology was chosen', 'Note any limitations of the approach'],
-  s5: ['Present key data points or findings', 'Create tables or figures if applicable', 'Interpret the results in your own words', 'Compare findings with existing literature'],
-  s6: ['Summarize the main findings in 2–3 sentences', 'Restate the significance of the work', 'Suggest future research directions'],
-  s7: ['Read through the entire document out loud', 'Check formatting against the style guide', 'Verify all citations are properly formatted', 'Run a spell-check and grammar tool'],
-  s8: ['Read each problem statement twice carefully', 'Highlight key constraints and edge cases', 'Write down inputs and expected outputs', 'Note which algorithms might apply'],
-  s9: ['Choose the appropriate sorting algorithm', 'Write pseudocode before real code', 'Implement the solution step-by-step', 'Test with at least 3 edge-case inputs'],
-  s10: ['Draw the graph on paper to visualize it', 'Choose BFS or DFS based on the problem', 'Implement traversal with a visited set', 'Trace through the algorithm by hand to verify'],
-  s11: ['Identify the time complexity of each solution', 'Identify the space complexity of each solution', 'Write a short justification for each analysis', 'Compare with known optimal complexities'],
-};
-
-function getMicroSteps(subTaskId: string, subTaskName: string): string[] {
-  if (MICRO_STEPS[subTaskId]) return MICRO_STEPS[subTaskId];
-  // Fallback generated steps
-  return [
-    `Review the requirements for "${subTaskName}"`,
-    'Break the work into smaller chunks',
-    'Complete the first chunk and review',
-    'Finalize and check for quality',
-  ];
-}
 
 export function AssignmentDetails() {
   const { taskId } = useParams();
   const navigate = useNavigate();
-  const { tasks } = useApp();
+  const { tasks, deleteTask } = useApp();
   const [expandedSubTaskId, setExpandedSubTaskId] = useState<string | null>(null);
 
   const task = tasks.find(t => t.id === taskId);
@@ -50,6 +24,13 @@ export function AssignmentDetails() {
     );
   }
 
+  const handleDelete = () => {
+    if (window.confirm('Are you sure you want to delete this entire assignment?')) {
+      deleteTask(task.id);
+      navigate('/');
+    }
+  };
+  
   const completedCount = task.subTasks.filter(st => st.completed).length;
   const totalCount = task.subTasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -63,20 +44,9 @@ export function AssignmentDetails() {
 
   const firstIncompleteIdx = task.subTasks.findIndex(st => !st.completed);
 
-  // Auto-expand the first incomplete subtask on mount
-  const getInitialExpanded = () => {
-    if (firstIncompleteIdx >= 0) return task.subTasks[firstIncompleteIdx].id;
-    return null;
-  };
-
-  // Use a ref-like pattern: if expandedSubTaskId has never been set, use the initial
-  const effectiveExpanded = expandedSubTaskId !== null ? expandedSubTaskId :
-    (expandedSubTaskId === null && firstIncompleteIdx >= 0 ? task.subTasks[firstIncompleteIdx].id : null);
-
   const toggleExpand = (id: string) => {
     setExpandedSubTaskId(prev => {
       if (prev === null && firstIncompleteIdx >= 0 && task.subTasks[firstIncompleteIdx].id === id) {
-        // Currently showing auto-expanded, collapse it
         return '__none__';
       }
       return prev === id ? '__none__' : id;
@@ -92,15 +62,27 @@ export function AssignmentDetails() {
   return (
     <div className="max-w-md mx-auto px-5 pt-6 pb-8" style={{ fontFamily: "'DM Sans', 'Inter', sans-serif" }}>
       {/* Top Navigation - User Control & Freedom */}
-      <motion.button
-        initial={{ opacity: 0, x: -8 }}
-        animate={{ opacity: 1, x: 0 }}
-        onClick={() => navigate('/')}
-        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors py-2 -ml-1 mb-4"
-      >
-        <ArrowLeft size={20} />
-        <span className="text-[15px]">Back</span>
-      </motion.button>
+      <div className="flex items-center justify-between mb-4">
+        <motion.button
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors py-2 -ml-1"
+        >
+          <ArrowLeft size={20} />
+          <span className="text-[15px]">Back</span>
+        </motion.button>
+
+        <motion.button
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={handleDelete}
+          className="p-2.5 rounded-xl text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
+          aria-label="Delete assignment"
+        >
+          <Trash2 size={18} />
+        </motion.button>
+      </div>
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
@@ -114,7 +96,7 @@ export function AssignmentDetails() {
             {daysLeft < 0 && <span className="text-destructive ml-1">(Overdue)</span>}
           </span>
           <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
-            <Clock size={13} /> ~{remainingMinutes}m left
+            <Clock size={13} /> ~{formatTime(remainingMinutes)} left
           </span>
         </div>
       </motion.div>
@@ -139,7 +121,7 @@ export function AssignmentDetails() {
           />
         </div>
         <p className="text-[12px] text-muted-foreground mt-2">
-          {Math.round(progress)}% complete &middot; ~{totalMinutes - remainingMinutes}m spent of ~{totalMinutes}m total
+          {Math.round(progress)}% complete &middot; ~{formatTime(totalMinutes - remainingMinutes)} spent of ~{formatTime(totalMinutes)} total
         </p>
       </motion.div>
 
@@ -155,7 +137,11 @@ export function AssignmentDetails() {
             {task.subTasks.map((st, i) => {
               const isFirstIncomplete = i === firstIncompleteIdx;
               const expanded = isExpanded(st.id);
-              const microSteps = getMicroSteps(st.id, st.name);
+              
+              // Use AI generated micro-steps, or a generic fallback if none exist
+              const microSteps = st.microSteps && st.microSteps.length > 0 
+                ? st.microSteps 
+                : ['Review the requirements for this step', 'Break the work into smaller chunks', 'Complete and check for quality'];
 
               return (
                 <motion.div
@@ -167,10 +153,7 @@ export function AssignmentDetails() {
                 >
                   {/* Timeline dot */}
                   {st.completed ? (
-                    <CheckCircle2
-                      size={16}
-                      className="absolute left-0 top-4 text-primary z-10"
-                    />
+                    <CheckCircle2 size={16} className="absolute left-0 top-4 text-primary z-10" />
                   ) : (
                     <div
                       className={`absolute left-0 top-4 w-4 h-4 rounded-full border-2 bg-background z-10 ${
@@ -205,7 +188,7 @@ export function AssignmentDetails() {
                           </p>
                           <div className="flex items-center gap-3 mt-1.5">
                             <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
-                              <Clock size={12} /> {st.estimatedMinutes} min
+                              <Clock size={12} /> {formatTime(st.estimatedMinutes)}
                             </span>
                             <span
                               className="text-[11px] px-2 py-0.5 rounded-full"
@@ -221,10 +204,7 @@ export function AssignmentDetails() {
                         <div className="flex items-center gap-2 ml-2 flex-shrink-0">
                           <span className="text-[12px] text-muted-foreground/40">#{i + 1}</span>
                           {!st.completed && (
-                            <motion.div
-                              animate={{ rotate: expanded ? 180 : 0 }}
-                              transition={{ duration: 0.2 }}
-                            >
+                            <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                               <ChevronDown size={16} className="text-muted-foreground/50" />
                             </motion.div>
                           )}
@@ -267,7 +247,7 @@ export function AssignmentDetails() {
                               ))}
                             </div>
 
-                            {/* Start Focus Session CTA — primary action, only in expanded state */}
+                            {/* Start Focus Session CTA */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { MOCK_TASKS, MOCK_SESSIONS } from './store';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { Task, SubTask, FocusSession } from './store';
 
 interface AppState {
@@ -12,16 +11,38 @@ interface AppState {
   completeSubTask: (subTaskId: string) => void;
   addSession: (session: FocusSession) => void;
   getNextSubTask: () => { subTask: SubTask; taskName: string } | null;
+  deleteTask: (taskId: string) => void; 
 }
 
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
-  const [sessions, setSessions] = useState<FocusSession[]>(MOCK_SESSIONS);
+  // 1. Initialize state from localStorage, or default to empty arrays
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const savedTasks = localStorage.getItem('tasksplit_tasks');
+    return savedTasks ? JSON.parse(savedTasks) : [];
+  });
+
+  const [sessions, setSessions] = useState<FocusSession[]>(() => {
+    const savedSessions = localStorage.getItem('tasksplit_sessions');
+    return savedSessions ? JSON.parse(savedSessions) : [];
+  });
+
+  // 2. Whenever tasks or sessions change, save them back to localStorage automatically
+  useEffect(() => {
+    localStorage.setItem('tasksplit_tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('tasksplit_sessions', JSON.stringify(sessions));
+  }, [sessions]);
 
   const addTask = useCallback((task: Task) => {
     setTasks(prev => [...prev, task]);
+  }, []);
+
+  const deleteTask = useCallback((taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
   }, []);
 
   const updateTask = useCallback((taskId: string, subTasks: SubTask[]) => {
@@ -48,7 +69,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [tasks]);
 
   return (
-    <AppContext.Provider value={{ tasks, sessions, activeSubTask: null, activeTaskName: '', addTask, updateTask, completeSubTask, addSession, getNextSubTask }}>
+    <AppContext.Provider value={{ 
+      tasks, 
+      sessions, 
+      activeSubTask: null, 
+      activeTaskName: '', 
+      addTask, 
+      updateTask, 
+      completeSubTask, 
+      addSession, 
+      getNextSubTask, 
+      deleteTask
+    }}>
       {children}
     </AppContext.Provider>
   );

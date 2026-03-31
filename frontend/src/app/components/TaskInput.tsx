@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { Sparkles, Calendar, ArrowLeft, Clock, Pencil, Upload, FileText, X } from 'lucide-react';
 import { useApp } from '../context';
-import { DIFFICULTY_COLORS } from '../store';
+import { DIFFICULTY_COLORS, formatTime } from '../store';
 import type { Task, SubTask } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -41,14 +41,47 @@ export function TaskInput() {
     if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!taskName.trim()) return;
     setIsGenerating(true);
-    setTimeout(() => {
-      const subs = GENERATED_SUBTASKS(taskName);
-      setGenerated(subs);
+
+    try {
+      // 1. Prepare the data to send to the backend
+      const formData = new FormData();
+      formData.append('taskName', taskName);
+      if (uploadedFile) {
+        formData.append('file', uploadedFile);
+      }
+
+      // 2. Call Node.js server
+      const response = await fetch('http://localhost:3000/api/generate-plan', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch plan from server');
+
+      const aiData = await response.json();
+
+      // 3. Map the AI's generic JSON into our exact TypeScript SubTask format
+      const formattedSubTasks: Omit<SubTask, 'parentTaskId'>[] = aiData.map((step: any, index: number) => ({
+        id: `gen-${Date.now()}-${index}`,
+        name: step.name,
+        difficulty: step.difficulty,
+        estimatedMinutes: step.estimatedMinutes,
+        completed: false,
+        microSteps: step.microSteps || [],
+      }));
+
+      setGenerated(formattedSubTasks);
+    } catch (error) {
+      console.error("Error generating tasks:", error);
+      alert("Oops! The AI needs a quick break. Please try again.");
+      // Fallback to the hardcoded list if the server is down
+      setGenerated(GENERATED_SUBTASKS(taskName));
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   const handleSave = () => {
@@ -183,21 +216,29 @@ export function TaskInput() {
               )}
             </div>
 
-            {/* Generate Button - Clear Affordance */}
-            <button
-              onClick={handleGenerate}
-              disabled={!taskName.trim() || isGenerating}
-              className="w-full bg-primary text-primary-foreground rounded-xl py-4 flex items-center justify-center gap-2.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] disabled:opacity-50 disabled:shadow-none active:scale-[0.98] transition-all duration-200"
-            >
-              {isGenerating ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+            {/* Generate Button - Error Prevention */}
+            <div className="space-y-2">
+              <button
+                onClick={handleGenerate}
+                disabled={!taskName.trim() || !dueDate || !uploadedFile || isGenerating}
+                className="w-full bg-primary text-primary-foreground rounded-xl py-4 flex items-center justify-center gap-2.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] disabled:opacity-50 disabled:shadow-none active:scale-[0.98] transition-all duration-200"
+              >
+                {isGenerating ? (
+                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                    <Sparkles size={18} />
+                  </motion.div>
+                ) : (
                   <Sparkles size={18} />
-                </motion.div>
-              ) : (
-                <Sparkles size={18} />
+                )}
+                {isGenerating ? 'Generating Action Plan...' : 'Generate Action Plan'}
+              </button>
+              
+              {(!taskName.trim() || !dueDate || !uploadedFile) && !isGenerating && (
+                <p className="text-[12px] text-muted-foreground text-center">
+                  Please provide a name, due date, and file to continue.
+                </p>
               )}
-              {isGenerating ? 'Generating Action Plan...' : 'Generate Action Plan'}
-            </button>
+            </div>
           </motion.div>
         ) : (
           <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -205,7 +246,7 @@ export function TaskInput() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-[18px]">Your Action Plan</h2>
-                <p className="text-[13px] text-muted-foreground">{generated.length} steps &middot; ~{generated.reduce((a, s) => a + s.estimatedMinutes, 0)} min total</p>
+                <p className="text-[13px] text-muted-foreground">{generated.length} steps &middot; ~{formatTime(generated.reduce((a, s) => a + s.estimatedMinutes, 0))} total</p>
               </div>
               <button
                 onClick={openEdit}
@@ -234,7 +275,7 @@ export function TaskInput() {
                           <p className="text-[14px] text-foreground">{st.name}</p>
                           <div className="flex items-center gap-3 mt-1.5">
                             <span className="flex items-center gap-1 text-[12px] text-muted-foreground">
-                              <Clock size={12} /> {st.estimatedMinutes} min
+                              <Clock size={12} /> {formatTime(st.estimatedMinutes)}
                             </span>
                             <span
                               className="text-[11px] px-2 py-0.5 rounded-full"
@@ -267,7 +308,10 @@ export function TaskInput() {
               <button onClick={() => setGenerated(null)} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2">
                 Start Over
               </button>
-              <button onClick={handleGenerate} className="text-[13px] text-primary hover:text-primary/80 transition-colors py-2">
+              <button 
+                onClick={() => { setGenerated(null); handleGenerate(); }} 
+                className="text-[13px] text-primary hover:text-primary/80 transition-colors py-2"
+              >
                 Regenerate
               </button>
             </div>
@@ -286,49 +330,73 @@ export function TaskInput() {
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-background rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-hidden"
+              className="bg-background rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex justify-center pt-3 pb-2">
+              <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
                 <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
               </div>
-              <div className="px-5 pb-3 flex items-center justify-between">
+              <div className="px-5 pb-3 flex items-center justify-between flex-shrink-0">
                 <h2 className="text-[18px]">Edit Action Plan</h2>
                 <button onClick={() => setShowEdit(false)} className="text-[13px] text-muted-foreground">Cancel</button>
               </div>
-              <div className="px-5 overflow-y-auto max-h-[60vh] pb-4">
+              
+              <div className="px-5 overflow-y-auto flex-1 pb-4">
                 <div className="space-y-2.5">
                   {editSubTasks.map((st, i) => (
                     <div key={st.id} className="bg-card rounded-xl p-3.5 border border-border">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex flex-col gap-0.5 cursor-grab text-muted-foreground/40">
+                      <div className="flex items-start gap-2 mb-3">
+                        <div className="flex flex-col gap-0.5 cursor-grab text-muted-foreground/40 mt-1">
                           <div className="flex gap-0.5"><div className="w-1 h-1 rounded-full bg-current" /><div className="w-1 h-1 rounded-full bg-current" /></div>
                           <div className="flex gap-0.5"><div className="w-1 h-1 rounded-full bg-current" /><div className="w-1 h-1 rounded-full bg-current" /></div>
                           <div className="flex gap-0.5"><div className="w-1 h-1 rounded-full bg-current" /><div className="w-1 h-1 rounded-full bg-current" /></div>
                         </div>
-                        <input
+                        <textarea
                           value={st.name}
                           onChange={e => updateSubTaskField(i, 'name', e.target.value)}
-                          className="flex-1 bg-transparent text-[14px] outline-none"
+                          className="flex-1 bg-transparent text-[14px] outline-none resize-none leading-snug"
+                          rows={2}
                         />
                         <button
                           onClick={() => deleteSubTask(i)}
-                          className="text-destructive/60 hover:text-destructive text-[12px] px-2 py-1 rounded-lg hover:bg-destructive/10 transition-colors"
+                          className="text-destructive/60 hover:text-destructive text-[12px] px-2 py-1 rounded-lg hover:bg-destructive/10 transition-colors shrink-0"
                         >
                           Remove
                         </button>
                       </div>
+                      
                       <div className="flex items-center gap-2 ml-5">
-                        <div className="flex items-center gap-1 bg-secondary rounded-lg px-2.5 py-1.5">
-                          <Clock size={12} className="text-muted-foreground" />
+                        
+                        {/* UPGRADED DUAL INPUT FOR TIME */}
+                        <div className="flex items-center gap-0.5 bg-secondary rounded-lg px-2 py-1.5">
+                          <Clock size={12} className="text-muted-foreground ml-1" />
                           <input
                             type="number"
-                            value={st.estimatedMinutes}
-                            onChange={e => updateSubTaskField(i, 'estimatedMinutes', parseInt(e.target.value) || 0)}
-                            className="w-10 bg-transparent text-[13px] outline-none text-center"
+                            min="0"
+                            value={Math.floor(st.estimatedMinutes / 60)}
+                            onChange={e => {
+                              const h = parseInt(e.target.value) || 0;
+                              const m = st.estimatedMinutes % 60;
+                              updateSubTaskField(i, 'estimatedMinutes', (h * 60) + m);
+                            }}
+                            className="w-7 bg-transparent text-[13px] outline-none text-center"
                           />
-                          <span className="text-[12px] text-muted-foreground">min</span>
+                          <span className="text-[12px] text-muted-foreground pr-1 border-r border-border/50">h</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            value={st.estimatedMinutes % 60}
+                            onChange={e => {
+                              const m = parseInt(e.target.value) || 0;
+                              const h = Math.floor(st.estimatedMinutes / 60);
+                              updateSubTaskField(i, 'estimatedMinutes', (h * 60) + m);
+                            }}
+                            className="w-7 bg-transparent text-[13px] outline-none text-center pl-1"
+                          />
+                          <span className="text-[12px] text-muted-foreground pr-1">m</span>
                         </div>
+
                         <select
                           value={st.difficulty}
                           onChange={e => updateSubTaskField(i, 'difficulty', e.target.value)}
@@ -355,7 +423,8 @@ export function TaskInput() {
                   ))}
                 </div>
               </div>
-              <div className="px-5 pb-6 pt-2">
+
+              <div className="px-5 pb-6 pt-2 flex-shrink-0 bg-background border-t border-border/50">
                 <button
                   onClick={() => { setGenerated(editSubTasks); setShowEdit(false); }}
                   className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] active:scale-[0.98] transition-all"

@@ -7,10 +7,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
 *.local
+
+# Environment variables (Protects Gemini API Key)
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*

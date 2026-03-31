@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
 import { Play, ChevronRight, Sparkles, Calendar, Clock } from 'lucide-react';
 import { useApp } from '../context';
-import { DIFFICULTY_COLORS } from '../store';
+import { DIFFICULTY_COLORS, formatTime } from '../store';
 import { motion } from 'motion/react';
 
 export function Dashboard() {
@@ -82,7 +82,8 @@ export function Dashboard() {
           <h3 className="text-[18px] text-foreground mb-1">{next.subTask.name}</h3>
           <p className="text-muted-foreground text-[13px] mb-4 flex items-center gap-3">
             <span className="flex items-center gap-1"><Calendar size={13} /> {next.taskName}</span>
-            <span className="flex items-center gap-1"><Clock size={13} /> {next.subTask.estimatedMinutes} min</span>
+            {/* UPDATED TIME FORMATTING HERE */}
+            <span className="flex items-center gap-1"><Clock size={13} /> {formatTime(next.subTask.estimatedMinutes)}</span>
           </p>
           <button
             onClick={() => navigate('/focus', { state: { subTask: next.subTask, taskName: next.taskName } })}

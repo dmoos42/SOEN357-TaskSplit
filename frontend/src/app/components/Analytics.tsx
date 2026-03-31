@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context';
 import { Trophy, Flame, Clock, CheckCircle2, TrendingUp, Sprout, Award, CalendarCheck, Info, ArrowUpRight } from 'lucide-react';
+import { formatTime } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
 
 type Tab = 'overview' | 'history';
@@ -33,15 +34,13 @@ export function Analytics() {
   // Today-scoped metrics
   const todayMinutes = todaySessions.reduce((acc, s) => acc + s.duration, 0);
   const todayStepsDone = todaySessions.length;
-  const todayFocusHours = Math.floor(todayMinutes / 60);
-  const todayFocusMins = todayMinutes % 60;
-  const todayFocusLabel = todayFocusHours > 0 ? `${todayFocusHours}h ${todayFocusMins}m` : `${todayFocusMins}m`;
+  const todayFocusLabel = formatTime(todayMinutes);
 
   const streak = 3;
 
   const growthPercent = totalSubTasks > 0 ? (totalCompleted / totalSubTasks) * 100 : 0;
   const plantStage = growthPercent < 20 ? 0 : growthPercent < 40 ? 1 : growthPercent < 60 ? 2 : growthPercent < 80 ? 3 : 4;
-  const plantEmojis = ['🌱', '🌿', '🪴', '🌳', '🌸'];
+  const plantEmojis = ['🌱', '🌿', '🪴', '🌳', '🌳'];
 
   const recentWins = sessions.slice(-5).reverse();
 
@@ -189,7 +188,7 @@ export function Analytics() {
               </motion.div>
             </div>
 
-            {/* Task Progress Bars — only active assignments */}
+            {/* Task Progress Bars */}
             {activeTasks.length > 0 && (
               <div className="bg-card rounded-2xl p-5 mb-5 border border-border">
                 <h3 className="text-[14px] text-foreground mb-4 flex items-center gap-2"><Sprout size={16} className="text-primary" /> Task Progress</h3>
@@ -240,7 +239,7 @@ export function Analytics() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] text-foreground truncate">{win.subTaskName}</p>
-                        <p className="text-[11px] text-muted-foreground">{win.duration} min session</p>
+                        <p className="text-[11px] text-muted-foreground">{formatTime(win.duration)} session</p>
                       </div>
                     </motion.div>
                   ))
@@ -279,9 +278,7 @@ export function Analytics() {
                   const totalFocusMin = sessions
                     .filter(s => task.subTasks.some(st => st.id === s.subTaskId))
                     .reduce((acc, s) => acc + s.duration, 0);
-                  const hours = Math.floor(totalFocusMin / 60);
-                  const mins = totalFocusMin % 60;
-                  const focusLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                  const focusLabel = formatTime(totalFocusMin);
                   const completedDate = new Date(task.dueDate);
                   const dateFormatted = completedDate.toLocaleDateString('en-US', {
                     month: 'short',
