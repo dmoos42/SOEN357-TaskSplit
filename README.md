@@ -1,59 +1,116 @@
-# TaskSplit - SOEN 357 Prototype
+# TaskSplit - SOEN 357
 
-This repository provides the full-stack prototype for TaskSplit, a mobile-first web application designed to help university students overcome procrastination by automatically decomposing large assignments into structured, actionable checklists. 
+TaskSplit is a mobile-first web app that helps students avoid procrastination by automatically breaking large assignments into smaller, actionable steps.
 
-Currently, the project architecture is divided into two main environments:
+---
 
-- **Frontend:** A React application using TypeScript, Vite, and Tailwind CSS v4.
-- **Backend:** A Node.js and Express server that interfaces natively with the Google Gemini 2.5 Flash API for AI task generation.
+## 🔗 Live Prototype
 
-## Core Features
+**Try it here:** https://bundle-cable-81591012.figma.site/
 
-TaskSplit is built with Human-Computer Interaction (HCI) principles in mind to reduce mental overload:
+⚠️ The prototype is mobile-first. If you're on desktop:
+1. Press **F12**
+2. Then **Ctrl + Shift + M**
+3. View it in mobile mode
 
-- **AI Task Breakdown:** Upload a syllabus (PDF/DOCX/TXT) to automatically generate step-by-step checklists with difficulty and time estimates.
-- **Focus Sessions:** Built-in minimalist timer designed to encourage consistent progress.
-- **Progress Tracking & Analytics:** A comprehensive dashboard featuring a visual "Focus Garden" that grows as you complete steps. It tracks detailed user metrics including your overall Productivity Score, total hours spent focusing, active day streaks, and a historical log of completed tasks and assignments.
-- **Session Persistence:** Uses browser `localStorage` to mock database persistence.
+---
 
-## Environment Setup
+## 🏗️ Architecture
 
-The backend requires a free Google Gemini API key to parse documents and generate task lists. If you are setting up this project for development or testing, you must obtain a key and create an environment variable file in the backend directory.
+TaskSplit has two parts:
 
-### How to get your free Gemini API Key:
-1. Go to [Google AI Studio](https://aistudio.google.com/).
-2. Sign in with your Google account.
-3. Click on **"Get API key"** in the left navigation menu, find the key and copy it.
+**Frontend**
+- React, TypeScript, Vite, Tailwind CSS v4
 
-Once you have your key, create a file named exactly `.env` inside the `backend` folder and add the following:
+**Backend**
+- Node.js, Express, Google Gemini 2.5 Flash API (task generation)
+
+---
+
+## ✨ Main Features
+
+TaskSplit is designed using HCI principles to reduce mental overload.
+
+- **AI Task Breakdown:** Upload a syllabus or assignment file (PDF / DOCX / TXT) to generate a step-by-step checklist with time and difficulty estimates.
+- **Focus Sessions:** Minimal timer to help users stay consistent while working.
+- **Progress Tracking:** Dashboard includes a productivity score, total focus hours, active streak, assignment progress timeline, and a Focus Garden visualization.
+- **Session Persistence:** Uses browser `localStorage` (mock database).
+
+---
+
+## 🧪 How to Test the App
+
+### Phase 1 - Generate Tasks
+1. Go to **New Task**
+2. Enter assignment name and Select due date
+4. Upload any PDF
+5. Click **Generate Action Plan**
+6. Edit steps if needed (remove, delete, etc)
+7. Click **Save & Start Working**
+
+### Phase 2 - Focus Session
+8. Go to the Dashboard
+9. Click **Start Focus Session** under "Up Next"
+10. Test the timer: Start, Pause, Stop
+11. Click **Done** to simulate completion
+
+### Phase 3 - Workspace Management
+12. Open your assignment under "Ongoing Assignments"
+13. View the timeline and progress
+14. Try editing the title or due date
+15. Try deleting the assignment
+
+### Phase 4 - Analytics & Reflection
+16. Navigate to the Analytics tab at the bottom of the screen
+17. Look at the Overview tab to see your plant grow in the Focus Garden
+18. Check your daily stats: Productivity Score, Total Focus time, and Day Streak as well as your recent wins
+19. Switch to the History tab to see a record of your fully completed assignments
+
+---
+
+## ⚠️ Known Limitations
+
+- State is saved using `localStorage`. Opening the app in multiple tabs will not sync data automatically.
+- Dragging a file outside the drop zone might trigger the browser to open the PDF instead of uploading it.
+
+---
+
+## 💻 Local Setup
+
+The backend requires a **Google Gemini API key**.
+
+### 1. Get API Key
+1. Go to: https://aistudio.google.com/
+2. Login with Google
+3. Click **Get API key** and copy it
+
+### 2. Create `.env` file
+Inside the `backend/` folder, create a file named exactly `.env` and add:
 
 ```env
-# backend/.env
 GEMINI_API_KEY=your_actual_api_key_here
 PORT=3000
 ```
-## Running the code
+---
 
-Because this is a full-stack application, you need to run the frontend and backend in two separate terminal windows. 
+## ▶️ Run the Project
 
-### 1. Start the Backend (AI Engine)
-Open your first terminal and navigate to the backend folder:
+You must run backend and frontend separately
 
-```bash
+
+### Start Backend
+
+```
 cd backend
 npm install
 npx nodemon server.js
 ```
 
-### 2. Start the Frontend (UI)
-Open a second terminal, navigate to the frontend folder, and start the Vite development server:
 
-```bash
+### Start Frontend
+
+```
 cd frontend
 npm install
 npm run dev
 ```
-
-## High-Fidelity UI Design
-
-This codebase implements the High-Fidelity UI Design for our SOEN 357 project. The original wireframes and mockups are available at https://www.figma.com/design/r9ozETzu34K49sVcY9wSZb/High-Fidelity-UI-Design.
