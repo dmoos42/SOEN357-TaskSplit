@@ -1,6 +1,6 @@
-﻿import { useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import { Sparkles, Calendar, ArrowLeft, Clock, Pencil, Upload, FileText, X } from 'lucide-react';
+import { Sparkles, Calendar, ArrowLeft, Clock, Pencil, Upload, FileText, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { useApp } from '../context';
 import { DIFFICULTY_COLORS, formatTime } from '../store';
 import type { Task, SubTask } from '../store';
@@ -15,7 +15,18 @@ export function TaskInput() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showEdit, setShowEdit] = useState(false);
-  const [editSubTasks, setEditSubTasks] = useState<Omit<SubTask, 'parentTaskId'>[]>([]);
+  const [committedSubTasks, setCommittedSubTasks] = useState<Omit<SubTask, 'parentTaskId'>[]>([]);
+  const [draftSubTasks, setDraftSubTasks] = useState<Omit<SubTask, 'parentTaskId'>[]>([]);
+
+  useEffect(() => {
+    if (generatedPlan) {
+      setCommittedSubTasks([...generatedPlan]);
+      setDraftSubTasks([...generatedPlan]);
+      return;
+    }
+    setCommittedSubTasks([]);
+    setDraftSubTasks([]);
+  }, [generatedPlan]);
 
   const handleFileSelect = (file: File) => {
     if (file.type === 'application/pdf' || file.name.endsWith('.pdf') || file.name.endsWith('.docx') || file.name.endsWith('.txt')) {
@@ -35,7 +46,7 @@ export function TaskInput() {
 
   const handleSave = () => {
     const taskId = `task-${Date.now()}`;
-    const subTasks: SubTask[] = (editSubTasks.length > 0 ? editSubTasks : generatedPlan!).map(st => ({ ...st, parentTaskId: taskId }));
+    const subTasks: SubTask[] = (committedSubTasks.length > 0 ? committedSubTasks : generatedPlan!).map(st => ({ ...st, parentTaskId: taskId }));
     const task: Task = {
       id: taskId,
       name: generatedTaskName,
@@ -50,22 +61,23 @@ export function TaskInput() {
   };
 
   const openEdit = () => {
-    setEditSubTasks([...(generatedPlan || [])]);
+    const base = committedSubTasks.length > 0 ? committedSubTasks : (generatedPlan || []);
+    setDraftSubTasks([...base]);
     setShowEdit(true);
   };
 
   const updateSubTaskField = (idx: number, field: string, value: any) => {
-    setEditSubTasks(prev => prev.map((st, i) => i === idx ? { ...st, [field]: value } : st));
+    setDraftSubTasks(prev => prev.map((st, i) => i === idx ? { ...st, [field]: value } : st));
   };
 
   const deleteSubTask = (idx: number) => {
-    setEditSubTasks(prev => prev.filter((_, i) => i !== idx));
+    setDraftSubTasks(prev => prev.filter((_, i) => i !== idx));
   };
 
   const moveSubTask = (fromIdx: number, dir: -1 | 1) => {
     const toIdx = fromIdx + dir;
-    if (toIdx < 0 || toIdx >= editSubTasks.length) return;
-    setEditSubTasks(prev => {
+    if (toIdx < 0 || toIdx >= draftSubTasks.length) return;
+    setDraftSubTasks(prev => {
       const arr = [...prev];
       [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
       return arr;
@@ -140,7 +152,7 @@ export function TaskInput() {
                     <p className="text-[14px] text-foreground">
                       {isDragging ? 'Drop your file here' : 'Tap to upload or drag & drop'}
                     </p>
-                    <p className="text-[12px] text-muted-foreground mt-1">PDF, DOCX, or TXT â€” syllabus, rubric, or brief</p>
+                    <p className="text-[12px] text-muted-foreground mt-1">PDF, DOCX, or TXT - syllabus, rubric, or brief</p>
                   </div>
                 </div>
               ) : (
@@ -210,7 +222,7 @@ export function TaskInput() {
             <div className="relative ml-3">
               <div className="absolute left-[7px] top-3 bottom-3 w-[2px] bg-primary/20 rounded-full" />
               <div className="space-y-3">
-                {(editSubTasks.length > 0 ? editSubTasks : generatedPlan).map((st, i) => (
+                {(committedSubTasks.length > 0 ? committedSubTasks : generatedPlan).map((st, i) => (
                   <motion.div
                     key={st.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -274,7 +286,7 @@ export function TaskInput() {
         {showEdit && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center"
+            className="fixed inset-0 bg-black/40 z-[70] flex items-end justify-center"
             onClick={() => setShowEdit(false)}
           >
             <motion.div
@@ -288,12 +300,20 @@ export function TaskInput() {
               </div>
               <div className="px-5 pb-3 flex items-center justify-between flex-shrink-0">
                 <h2 className="text-[18px]">Edit Action Plan</h2>
-                <button onClick={() => setShowEdit(false)} className="text-[13px] text-muted-foreground">Cancel</button>
+                <button
+                  onClick={() => {
+                    setDraftSubTasks([...(committedSubTasks.length > 0 ? committedSubTasks : (generatedPlan || []))]);
+                    setShowEdit(false);
+                  }}
+                  className="text-[13px] text-muted-foreground"
+                >
+                  Cancel
+                </button>
               </div>
               
               <div className="px-5 overflow-y-auto flex-1 pb-4">
                 <div className="space-y-2.5">
-                  {editSubTasks.map((st, i) => (
+                  {draftSubTasks.map((st, i) => (
                     <div key={st.id} className="bg-card rounded-xl p-3.5 border border-border">
                       <div className="flex items-start gap-2 mb-3">
                         <div className="flex flex-col gap-0.5 cursor-grab text-muted-foreground/40 mt-1">
@@ -321,28 +341,34 @@ export function TaskInput() {
                         <div className="flex items-center gap-0.5 bg-secondary rounded-lg px-2 py-1.5">
                           <Clock size={12} className="text-muted-foreground ml-1" />
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={3}
                             value={Math.floor(st.estimatedMinutes / 60)}
                             onChange={e => {
-                              const h = parseInt(e.target.value) || 0;
+                              const sanitized = e.target.value.replace(/\D/g, '');
+                              const h = parseInt(sanitized, 10) || 0;
                               const m = st.estimatedMinutes % 60;
                               updateSubTaskField(i, 'estimatedMinutes', (h * 60) + m);
                             }}
-                            className="w-7 bg-transparent text-[13px] outline-none text-center"
+                            className="w-9 bg-transparent text-[13px] outline-none text-center"
                           />
                           <span className="text-[12px] text-muted-foreground pr-1 border-r border-border/50">h</span>
                           <input
-                            type="number"
-                            min="0"
-                            max="59"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={2}
                             value={st.estimatedMinutes % 60}
                             onChange={e => {
-                              const m = parseInt(e.target.value) || 0;
+                              const sanitized = e.target.value.replace(/\D/g, '');
+                              const rawMinutes = parseInt(sanitized, 10) || 0;
+                              const m = Math.min(rawMinutes, 59);
                               const h = Math.floor(st.estimatedMinutes / 60);
                               updateSubTaskField(i, 'estimatedMinutes', (h * 60) + m);
                             }}
-                            className="w-7 bg-transparent text-[13px] outline-none text-center pl-1"
+                            className="w-9 bg-transparent text-[13px] outline-none text-center pl-1"
                           />
                           <span className="text-[12px] text-muted-foreground pr-1">m</span>
                         </div>
@@ -361,12 +387,12 @@ export function TaskInput() {
                             onClick={() => moveSubTask(i, -1)}
                             disabled={i === 0}
                             className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground disabled:opacity-30 hover:bg-primary/10 transition-colors text-[14px]"
-                          >â†‘</button>
+                          ><ChevronUp size={14} /></button>
                           <button
                             onClick={() => moveSubTask(i, 1)}
-                            disabled={i === editSubTasks.length - 1}
+                            disabled={i === draftSubTasks.length - 1}
                             className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground disabled:opacity-30 hover:bg-primary/10 transition-colors text-[14px]"
-                          >â†“</button>
+                          ><ChevronDown size={14} /></button>
                         </div>
                       </div>
                     </div>
@@ -376,7 +402,10 @@ export function TaskInput() {
 
               <div className="px-5 pb-6 pt-2 flex-shrink-0 bg-background border-t border-border/50">
                 <button
-                  onClick={() => setShowEdit(false)}
+                  onClick={() => {
+                    setCommittedSubTasks([...draftSubTasks]);
+                    setShowEdit(false);
+                  }}
                   className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] active:scale-[0.98] transition-all"
                 >
                   Save & Commit
