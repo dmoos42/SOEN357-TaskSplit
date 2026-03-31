@@ -1,84 +1,59 @@
-# React + TypeScript + Vite
+# TaskSplit - SOEN 357 Prototype
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This repository provides the full-stack prototype for TaskSplit, a mobile-first web application designed to help university students overcome procrastination by automatically decomposing large assignments into structured, actionable checklists. 
 
-Currently, two official plugins are available:
+Currently, the project architecture is divided into two main environments:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend:** A React application using TypeScript, Vite, and Tailwind CSS v4.
+- **Backend:** A Node.js and Express server that interfaces natively with the Google Gemini 2.5 Flash API for AI task generation.
 
-## React Compiler
+## Core Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+TaskSplit is built with Human-Computer Interaction (HCI) principles in mind to reduce mental overload:
 
-## Expanding the ESLint configuration
+- **AI Task Breakdown:** Upload a syllabus (PDF/DOCX/TXT) to automatically generate step-by-step checklists with difficulty and time estimates.
+- **Focus Sessions:** Built-in minimalist timer designed to encourage consistent progress.
+- **Progress Tracking & Analytics:** A comprehensive dashboard featuring a visual "Focus Garden" that grows as you complete steps. It tracks detailed user metrics including your overall Productivity Score, total hours spent focusing, active day streaks, and a historical log of completed tasks and assignments.
+- **Session Persistence:** Uses browser `localStorage` to mock database persistence.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Environment Setup
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The backend requires a free Google Gemini API key to parse documents and generate task lists. If you are setting up this project for development or testing, you must obtain a key and create an environment variable file in the backend directory.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### How to get your free Gemini API Key:
+1. Go to [Google AI Studio](https://aistudio.google.com/).
+2. Sign in with your Google account.
+3. Click on **"Get API key"** in the left navigation menu, find the key and copy it.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Once you have your key, create a file named exactly `.env` inside the `backend` folder and add the following:
+
+```env
+# backend/.env
+GEMINI_API_KEY=your_actual_api_key_here
+PORT=3000
+```
+## Running the code
+
+Because this is a full-stack application, you need to run the frontend and backend in two separate terminal windows. 
+
+### 1. Start the Backend (AI Engine)
+Open your first terminal and navigate to the backend folder:
+
+```bash
+cd backend
+npm install
+npx nodemon server.js
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Start the Frontend (UI)
+Open a second terminal, navigate to the frontend folder, and start the Vite development server:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-  # High-Fidelity UI Design
+## High-Fidelity UI Design
 
-  This is a code bundle for High-Fidelity UI Design. The original project is available at https://www.figma.com/design/r9ozETzu34K49sVcY9wSZb/High-Fidelity-UI-Design.
-
-  ## Running the code
-
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+This codebase implements the High-Fidelity UI Design for our SOEN 357 project. The original wireframes and mockups are available at https://www.figma.com/design/r9ozETzu34K49sVcY9wSZb/High-Fidelity-UI-Design.
