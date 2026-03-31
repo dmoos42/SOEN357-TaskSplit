@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Calendar, Clock, Play, CheckCircle2, Sparkles, ChevronDown, Trash2, Pencil, Check, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Play, CheckCircle2, Sparkles, ChevronDown, Trash2, Check, X, MoreHorizontal } from 'lucide-react';
 import { useApp } from '../context';
 import { DIFFICULTY_COLORS, formatTime } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,16 +8,20 @@ import { motion, AnimatePresence } from 'motion/react';
 export function AssignmentDetails() {
   const { taskId } = useParams();
   const navigate = useNavigate();
-  const { tasks, deleteTask, updateTaskDueDate } = useApp();
+  const { tasks, deleteTask, updateTaskDueDate, updateTaskName } = useApp();
   const [expandedSubTaskId, setExpandedSubTaskId] = useState<string | null>(null);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
   const [draftDueDate, setDraftDueDate] = useState('');
+  const [draftName, setDraftName] = useState('');
 
   const task = tasks.find(t => t.id === taskId);
 
   useEffect(() => {
     if (task) {
       setDraftDueDate(task.dueDate);
+      setDraftName(task.name);
     }
   }, [task]);
 
@@ -44,7 +48,28 @@ export function AssignmentDetails() {
     updateTaskDueDate(task.id, draftDueDate);
     setIsEditingDueDate(false);
   };
-  
+
+  const handleSaveName = () => {
+    const trimmed = draftName.trim();
+    if (!trimmed) return;
+    updateTaskName(task.id, trimmed);
+    setIsEditingName(false);
+  };
+
+  const openNameEdit = () => {
+    setDraftName(task.name);
+    setIsEditingDueDate(false);
+    setIsEditingName(true);
+    setShowActionsMenu(false);
+  };
+
+  const openDueDateEdit = () => {
+    setDraftDueDate(task.dueDate);
+    setIsEditingName(false);
+    setIsEditingDueDate(true);
+    setShowActionsMenu(false);
+  };
+
   const completedCount = task.subTasks.filter(st => st.completed).length;
   const totalCount = task.subTasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -87,20 +112,87 @@ export function AssignmentDetails() {
           <span className="text-[15px]">Back</span>
         </motion.button>
 
-        <motion.button
-          initial={{ opacity: 0, x: 8 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={handleDelete}
-          className="p-2.5 rounded-xl text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
-          aria-label="Delete assignment"
-        >
-          <Trash2 size={18} />
-        </motion.button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <motion.button
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              onClick={() => setShowActionsMenu(prev => !prev)}
+              className="p-2.5 rounded-xl text-muted-foreground hover:bg-secondary/70 hover:text-foreground transition-colors"
+              aria-label="Task options"
+            >
+              <MoreHorizontal size={18} />
+            </motion.button>
+            <AnimatePresence>
+              {showActionsMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="absolute right-0 mt-1 w-44 bg-card border border-border rounded-xl shadow-[0_6px_22px_rgba(0,0,0,0.12)] p-1.5 z-30"
+                >
+                  <button
+                    onClick={openNameEdit}
+                    className="w-full text-left px-3 py-2 text-[13px] rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    Edit assignment name
+                  </button>
+                  <button
+                    onClick={openDueDateEdit}
+                    className="w-full text-left px-3 py-2 text-[13px] rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    Edit due date
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <motion.button
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={handleDelete}
+            className="p-2.5 rounded-xl text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
+            aria-label="Delete assignment"
+          >
+            <Trash2 size={18} />
+          </motion.button>
+        </div>
       </div>
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-        <h1 className="text-[24px] text-foreground mb-2">{task.name}</h1>
+        {isEditingName ? (
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              value={draftName}
+              onChange={e => setDraftName(e.target.value)}
+              className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-[20px] text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="Assignment name"
+            />
+            <button
+              onClick={handleSaveName}
+              disabled={!draftName.trim()}
+              className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Save assignment name"
+            >
+              <Check size={14} />
+            </button>
+            <button
+              onClick={() => {
+                setDraftName(task.name);
+                setIsEditingName(false);
+              }}
+              className="w-8 h-8 rounded-md bg-secondary text-muted-foreground flex items-center justify-center hover:bg-secondary/80 transition-colors"
+              aria-label="Cancel assignment name edit"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <h1 className="text-[24px] text-foreground mb-2">{task.name}</h1>
+        )}
+
         <div className="flex items-center gap-4 mb-6">
           {isEditingDueDate ? (
             <div className="flex items-center gap-2">
@@ -137,13 +229,6 @@ export function AssignmentDetails() {
               {daysLeft > 0 && <span className="text-primary ml-1">({daysLeft}d left)</span>}
               {daysLeft === 0 && <span className="text-amber-600 ml-1">(Today)</span>}
               {daysLeft < 0 && <span className="text-destructive ml-1">(Overdue)</span>}
-              <button
-                onClick={() => setIsEditingDueDate(true)}
-                className="ml-1 inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors"
-                aria-label="Edit due date"
-              >
-                <Pencil size={12} />
-              </button>
             </span>
           )}
           <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
@@ -188,10 +273,9 @@ export function AssignmentDetails() {
             {task.subTasks.map((st, i) => {
               const isFirstIncomplete = i === firstIncompleteIdx;
               const expanded = isExpanded(st.id);
-              
-              // Use AI generated micro-steps, or a generic fallback if none exist
-              const microSteps = st.microSteps && st.microSteps.length > 0 
-                ? st.microSteps 
+
+              const microSteps = st.microSteps && st.microSteps.length > 0
+                ? st.microSteps
                 : ['Review the requirements for this step', 'Break the work into smaller chunks', 'Complete and check for quality'];
 
               return (
@@ -202,7 +286,6 @@ export function AssignmentDetails() {
                   transition={{ delay: 0.2 + i * 0.05 }}
                   className="relative pl-7"
                 >
-                  {/* Timeline dot */}
                   {st.completed ? (
                     <CheckCircle2 size={16} className="absolute left-0 top-4 text-primary z-10" />
                   ) : (
@@ -226,7 +309,6 @@ export function AssignmentDetails() {
                         : 'bg-card border-border'
                     }`}
                   >
-                    {/* Collapsed header — always visible, acts as expand trigger */}
                     <button
                       onClick={() => !st.completed && toggleExpand(st.id)}
                       disabled={st.completed}
@@ -263,7 +345,6 @@ export function AssignmentDetails() {
                       </div>
                     </button>
 
-                    {/* Expanded micro-step breakdown */}
                     <AnimatePresence>
                       {expanded && !st.completed && (
                         <motion.div
@@ -274,15 +355,12 @@ export function AssignmentDetails() {
                           className="overflow-hidden"
                         >
                           <div className="px-4 pb-4">
-                            {/* Divider */}
                             <div className="h-px bg-border mb-3" />
 
-                            {/* Micro-step label */}
                             <p className="text-[11px] text-muted-foreground tracking-wide uppercase mb-2.5">
                               Micro-Step Breakdown
                             </p>
 
-                            {/* Micro-steps list */}
                             <div className="space-y-2 mb-4">
                               {microSteps.map((step, stepIdx) => (
                                 <div key={stepIdx} className="flex items-start gap-2.5">
@@ -298,7 +376,6 @@ export function AssignmentDetails() {
                               ))}
                             </div>
 
-                            {/* Start Focus Session CTA */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

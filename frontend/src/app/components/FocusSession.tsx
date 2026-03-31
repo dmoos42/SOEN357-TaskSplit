@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Pause, Play, Square, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context';
@@ -49,13 +49,13 @@ export function FocusSession() {
         id: `fs-${Date.now()}`,
         subTaskId: subTask.id,
         subTaskName: subTask.name,
-        duration: subTask.estimatedMinutes,
+        duration: Math.round((totalSeconds - remaining) / 60),
         completedAt: new Date().toISOString(),
       });
     }
     setCompleted(true);
     setIsRunning(false);
-  }, [subTask, completeSubTask, addSession]);
+  }, [subTask, completeSubTask, addSession, totalSeconds, remaining]);
 
   const handleStop = () => {
     navigate(taskId ? `/assignment/${taskId}` : '/');
@@ -86,7 +86,7 @@ export function FocusSession() {
           <h1 className="text-[24px] text-foreground mb-2">Great work!</h1>
           <p className="text-muted-foreground text-[14px] mb-2">{subTask.name}</p>
           {/* UPDATED COMPLETED SCREEN MESSAGE */}
-          <p className="text-muted-foreground text-[13px] mb-8">You completed a {formatTime(subTask.estimatedMinutes)} focus session</p>
+          <p className="text-muted-foreground text-[13px] mb-8">You completed a {formatTime(Math.round((totalSeconds - remaining) / 60))} focus session</p>
           <button
             onClick={() => navigate(taskId ? `/assignment/${taskId}` : '/')}
             className="bg-primary text-primary-foreground rounded-xl px-8 py-3.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] active:scale-[0.98] transition-all"

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { Sparkles, Calendar, ArrowLeft, Clock, Pencil, Upload, FileText, X } from 'lucide-react';
 import { useApp } from '../context';
@@ -6,19 +6,9 @@ import { DIFFICULTY_COLORS, formatTime } from '../store';
 import type { Task, SubTask } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
 
-const GENERATED_SUBTASKS = (name: string): Omit<SubTask, 'parentTaskId'>[] => [
-  { id: `gen-${Date.now()}-1`, name: `Review ${name} requirements`, difficulty: 'Easy', estimatedMinutes: 15, completed: false },
-  { id: `gen-${Date.now()}-2`, name: 'Research & gather resources', difficulty: 'Medium', estimatedMinutes: 40, completed: false },
-  { id: `gen-${Date.now()}-3`, name: 'Create initial outline', difficulty: 'Easy', estimatedMinutes: 20, completed: false },
-  { id: `gen-${Date.now()}-4`, name: 'Draft first section', difficulty: 'Medium', estimatedMinutes: 35, completed: false },
-  { id: `gen-${Date.now()}-5`, name: 'Draft remaining sections', difficulty: 'Hard', estimatedMinutes: 50, completed: false },
-  { id: `gen-${Date.now()}-6`, name: 'Review & revise', difficulty: 'Medium', estimatedMinutes: 30, completed: false },
-  { id: `gen-${Date.now()}-7`, name: 'Final proofread & submit', difficulty: 'Easy', estimatedMinutes: 15, completed: false },
-];
-
 export function TaskInput() {
   const navigate = useNavigate();
-  const { addTask, startGeneration, resetGeneration, isGenerating, generatedPlan, generatedTaskName, generatedDueDate, generatedFile } = useApp();
+  const { addTask, startGeneration, resetGeneration, isGenerating, generatedPlan, generatedTaskName, generatedDueDate } = useApp();
   const [taskName, setTaskName] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -45,7 +35,7 @@ export function TaskInput() {
 
   const handleSave = () => {
     const taskId = `task-${Date.now()}`;
-    const subTasks: SubTask[] = (showEdit ? editSubTasks : generatedPlan!).map(st => ({ ...st, parentTaskId: taskId }));
+    const subTasks: SubTask[] = (editSubTasks.length > 0 ? editSubTasks : generatedPlan!).map(st => ({ ...st, parentTaskId: taskId }));
     const task: Task = {
       id: taskId,
       name: generatedTaskName,
@@ -150,7 +140,7 @@ export function TaskInput() {
                     <p className="text-[14px] text-foreground">
                       {isDragging ? 'Drop your file here' : 'Tap to upload or drag & drop'}
                     </p>
-                    <p className="text-[12px] text-muted-foreground mt-1">PDF, DOCX, or TXT — syllabus, rubric, or brief</p>
+                    <p className="text-[12px] text-muted-foreground mt-1">PDF, DOCX, or TXT â€” syllabus, rubric, or brief</p>
                   </div>
                 </div>
               ) : (
@@ -220,7 +210,7 @@ export function TaskInput() {
             <div className="relative ml-3">
               <div className="absolute left-[7px] top-3 bottom-3 w-[2px] bg-primary/20 rounded-full" />
               <div className="space-y-3">
-                {(showEdit ? editSubTasks : generatedPlan).map((st, i) => (
+                {(editSubTasks.length > 0 ? editSubTasks : generatedPlan).map((st, i) => (
                   <motion.div
                     key={st.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -371,12 +361,12 @@ export function TaskInput() {
                             onClick={() => moveSubTask(i, -1)}
                             disabled={i === 0}
                             className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground disabled:opacity-30 hover:bg-primary/10 transition-colors text-[14px]"
-                          >↑</button>
+                          >â†‘</button>
                           <button
                             onClick={() => moveSubTask(i, 1)}
                             disabled={i === editSubTasks.length - 1}
                             className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground disabled:opacity-30 hover:bg-primary/10 transition-colors text-[14px]"
-                          >↓</button>
+                          >â†“</button>
                         </div>
                       </div>
                     </div>
@@ -386,7 +376,7 @@ export function TaskInput() {
 
               <div className="px-5 pb-6 pt-2 flex-shrink-0 bg-background border-t border-border/50">
                 <button
-                  onClick={() => { setGenerated(editSubTasks); setShowEdit(false); }}
+                  onClick={() => setShowEdit(false)}
                   className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] active:scale-[0.98] transition-all"
                 >
                   Save & Commit

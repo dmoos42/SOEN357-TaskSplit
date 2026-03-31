@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { Task, SubTask, FocusSession } from './store';
 
 interface AppState {
@@ -14,6 +14,7 @@ interface AppState {
   addTask: (task: Task) => void;
   updateTask: (taskId: string, subTasks: SubTask[]) => void;
   updateTaskDueDate: (taskId: string, dueDate: string) => void;
+  updateTaskName: (taskId: string, name: string) => void;
   completeSubTask: (subTaskId: string) => void;
   addSession: (session: FocusSession) => void;
   getNextSubTask: () => { subTask: SubTask; taskName: string } | null;
@@ -65,6 +66,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateTaskDueDate = useCallback((taskId: string, dueDate: string) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, dueDate } : t));
+  }, []);
+
+  const updateTaskName = useCallback((taskId: string, name: string) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, name } : t));
   }, []);
 
   const completeSubTask = useCallback((subTaskId: string) => {
@@ -158,6 +163,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addTask, 
       updateTask, 
       updateTaskDueDate,
+      updateTaskName,
       completeSubTask, 
       addSession, 
       getNextSubTask, 
