@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Calendar, Clock, Play, CheckCircle2, Sparkles, ChevronDown, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Play, CheckCircle2, Sparkles, ChevronDown, Trash2, Pencil, Check, X } from 'lucide-react';
 import { useApp } from '../context';
 import { DIFFICULTY_COLORS, formatTime } from '../store';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,10 +8,18 @@ import { motion, AnimatePresence } from 'motion/react';
 export function AssignmentDetails() {
   const { taskId } = useParams();
   const navigate = useNavigate();
-  const { tasks, deleteTask } = useApp();
+  const { tasks, deleteTask, updateTaskDueDate } = useApp();
   const [expandedSubTaskId, setExpandedSubTaskId] = useState<string | null>(null);
+  const [isEditingDueDate, setIsEditingDueDate] = useState(false);
+  const [draftDueDate, setDraftDueDate] = useState('');
 
   const task = tasks.find(t => t.id === taskId);
+
+  useEffect(() => {
+    if (task) {
+      setDraftDueDate(task.dueDate);
+    }
+  }, [task]);
 
   if (!task) {
     return (
@@ -29,6 +37,12 @@ export function AssignmentDetails() {
       deleteTask(task.id);
       navigate('/');
     }
+  };
+
+  const handleSaveDueDate = () => {
+    if (!draftDueDate) return;
+    updateTaskDueDate(task.id, draftDueDate);
+    setIsEditingDueDate(false);
   };
   
   const completedCount = task.subTasks.filter(st => st.completed).length;
@@ -88,13 +102,50 @@ export function AssignmentDetails() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
         <h1 className="text-[24px] text-foreground mb-2">{task.name}</h1>
         <div className="flex items-center gap-4 mb-6">
-          <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
-            <Calendar size={13} />
-            Due {dueDateFormatted}
-            {daysLeft > 0 && <span className="text-primary ml-1">({daysLeft}d left)</span>}
-            {daysLeft === 0 && <span className="text-amber-600 ml-1">(Today)</span>}
-            {daysLeft < 0 && <span className="text-destructive ml-1">(Overdue)</span>}
-          </span>
+          {isEditingDueDate ? (
+            <div className="flex items-center gap-2">
+              <Calendar size={13} className="text-muted-foreground" />
+              <input
+                type="date"
+                value={draftDueDate}
+                onChange={e => setDraftDueDate(e.target.value)}
+                className="bg-card border border-border rounded-lg px-2.5 py-1.5 text-[13px] text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              />
+              <button
+                onClick={handleSaveDueDate}
+                disabled={!draftDueDate}
+                className="w-7 h-7 rounded-md bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Save due date"
+              >
+                <Check size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  setDraftDueDate(task.dueDate);
+                  setIsEditingDueDate(false);
+                }}
+                className="w-7 h-7 rounded-md bg-secondary text-muted-foreground flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                aria-label="Cancel due date edit"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
+              <Calendar size={13} />
+              Due {dueDateFormatted}
+              {daysLeft > 0 && <span className="text-primary ml-1">({daysLeft}d left)</span>}
+              {daysLeft === 0 && <span className="text-amber-600 ml-1">(Today)</span>}
+              {daysLeft < 0 && <span className="text-destructive ml-1">(Overdue)</span>}
+              <button
+                onClick={() => setIsEditingDueDate(true)}
+                className="ml-1 inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors"
+                aria-label="Edit due date"
+              >
+                <Pencil size={12} />
+              </button>
+            </span>
+          )}
           <span className="text-[13px] text-muted-foreground flex items-center gap-1.5">
             <Clock size={13} /> ~{formatTime(remainingMinutes)} left
           </span>

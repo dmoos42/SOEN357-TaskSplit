@@ -8,6 +8,7 @@ interface AppState {
   activeTaskName: string;
   addTask: (task: Task) => void;
   updateTask: (taskId: string, subTasks: SubTask[]) => void;
+  updateTaskDueDate: (taskId: string, dueDate: string) => void;
   completeSubTask: (subTaskId: string) => void;
   addSession: (session: FocusSession) => void;
   getNextSubTask: () => { subTask: SubTask; taskName: string } | null;
@@ -49,6 +50,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, subTasks } : t));
   }, []);
 
+  const updateTaskDueDate = useCallback((taskId: string, dueDate: string) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, dueDate } : t));
+  }, []);
+
   const completeSubTask = useCallback((subTaskId: string) => {
     setTasks(prev => prev.map(t => ({
       ...t,
@@ -76,6 +81,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       activeTaskName: '', 
       addTask, 
       updateTask, 
+      updateTaskDueDate,
       completeSubTask, 
       addSession, 
       getNextSubTask, 

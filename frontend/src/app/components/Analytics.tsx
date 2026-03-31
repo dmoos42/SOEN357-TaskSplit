@@ -36,7 +36,38 @@ export function Analytics() {
   const todayStepsDone = todaySessions.length;
   const todayFocusLabel = formatTime(todayMinutes);
 
-  const streak = 3;
+ const streak = (() => {
+    const uniqueDays = Array.from(
+      new Set(sessions.map(s => new Date(s.completedAt).toDateString()))
+    );
+ 
+    if (uniqueDays.length === 0) return 0;
+ 
+    // Normalize a date to midnight local time for day-level comparison
+    const toMidnight = (d: Date) => {
+      const copy = new Date(d);
+      copy.setHours(0, 0, 0, 0);
+      return copy.getTime();
+    };
+ 
+    const todayMs = toMidnight(new Date());
+    const oneDayMs = 24 * 60 * 60 * 1000;
+ 
+    const daySet = new Set(
+      uniqueDays.map(d => toMidnight(new Date(d)))
+    );
+ 
+    // Streak must include today or yesterday — if neither, it's already broken
+    let cursor = daySet.has(todayMs) ? todayMs : todayMs - oneDayMs;
+    if (!daySet.has(cursor)) return 0;
+ 
+    let count = 0;
+    while (daySet.has(cursor)) {
+      count++;
+      cursor -= oneDayMs;
+    }
+    return count;
+  })();
 
   const growthPercent = totalSubTasks > 0 ? (totalCompleted / totalSubTasks) * 100 : 0;
   const plantStage = growthPercent < 20 ? 0 : growthPercent < 40 ? 1 : growthPercent < 60 ? 2 : growthPercent < 80 ? 3 : 4;
@@ -50,9 +81,46 @@ export function Analytics() {
 
   const activeTasks = tasks.filter(t => t.subTasks.length > 0 && t.subTasks.some(st => !st.completed));
 
+  const computeScore = (includedSessions: typeof sessions) => {
+    const stepsScore = totalSubTasks > 0 ? (totalCompleted / totalSubTasks) * 40 : 0;
+ 
+    const streakScore = Math.min(streak / 7, 1) * 30;
+ 
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayMs = todayStart.getTime();
+    const last7Days = new Set(
+      Array.from({ length: 7 }, (_, i) => todayMs - i * oneDayMs)
+    );
+    const daysWithSessions = new Set(
+      includedSessions.map(s => {
+        const d = new Date(s.completedAt); d.setHours(0, 0, 0, 0); return d.getTime();
+      })
+    );
+    const activeDaysInLast7 = [...last7Days].filter(d => daysWithSessions.has(d)).length;
+    const consistencyScore = (activeDaysInLast7 / 7) * 30;
+ 
+    return Math.min(100, Math.round(stepsScore + streakScore + consistencyScore));
+  };
+
+  const productivityScore = computeScore(sessions);
+  const yesterdayScore = computeScore(sessions.filter(s => {
+    const d = new Date(s.completedAt); d.setHours(0, 0, 0, 0);
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    return d.getTime() < todayStart.getTime();
+  }));
+  
+  const scoreDelta = productivityScore - yesterdayScore;
+
+
+
+
+
+
+
   // Standard stat cards (first 3)
   const standardStats = [
-    { icon: Flame, label: 'Day Streak', value: `${streak} days`, color: '#E65100', bg: '#FFF3E0' },
+    { icon: Flame, label: 'Day Streak', value: `${streak} day${streak !== 1 ? 's' : ''}`, color: '#E65100', bg: '#FFF3E0' },
     { icon: CheckCircle2, label: 'Steps Done Today', value: `${todayStepsDone}`, color: '#2E7D32', bg: '#E8F5E9' },
     { icon: Clock, label: 'Total Focus Today', value: todayFocusLabel, color: '#1565C0', bg: '#E3F2FD' },
   ];
@@ -153,9 +221,17 @@ export function Analytics() {
                   <TrendingUp size={18} style={{ color: '#7B1FA2' }} />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <p className="text-[17px] text-foreground">85</p>
-                  <ArrowUpRight size={14} className="text-[#2E7D32]" />
-                  <span className="text-[12px] text-[#2E7D32]">+12</span>
+                  <p className="text-[17px] text-foreground">{productivityScore}</p>
+                  {scoreDelta !== 0 && (
+                    <>
+                      {scoreDelta > 0 ? <ArrowUpRight size={14} className="text-[#2E7D32]" />
+                        : <ArrowUpRight size={14} className="text-destructive rotate-90" />
+                      }
+                      <span className={`text-[12px] ${scoreDelta > 0 ? 'text-[#2E7D32]' : 'text-destructive'}`}>
+                        {scoreDelta > 0 ? '+' : ''}{scoreDelta}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="relative" ref={infoRef}>
                   <p className="text-[12px] text-muted-foreground flex items-center gap-1 mt-0.5">
