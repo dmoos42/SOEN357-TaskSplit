@@ -9,7 +9,7 @@ TaskSplit is a mobile-first web app that helps students avoid procrastination by
 **Try it here:** https://bundle-cable-81591012.figma.site/
 
 ⚠️ The prototype is mobile-first. If you're on desktop:
-1. Press **F12**
+1. Right-click anywhere and look for inspect.
 2. Then **Ctrl + Shift + M**
 3. View it in mobile mode
 
