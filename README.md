@@ -31,7 +31,7 @@ TaskSplit has two parts:
 
 TaskSplit is designed using HCI principles to reduce mental overload.
 
-- **AI Task Breakdown:** Upload a syllabus or assignment file (PDF / DOCX / TXT) to generate a step-by-step checklist with time and difficulty estimates.
+- **AI Task Breakdown:** Upload a syllabus or assignment file (PDF) to generate a step-by-step checklist with time and difficulty estimates.
 - **Focus Sessions:** Minimal timer to help users stay consistent while working.
 - **Progress Tracking:** Dashboard includes a productivity score, total focus hours, active streak, assignment progress timeline, and a Focus Garden visualization.
 - **Session Persistence:** Uses browser `localStorage` (mock database).
