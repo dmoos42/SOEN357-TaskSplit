@@ -1,6 +1,7 @@
 ﻿import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { Task, SubTask, FocusSession } from './store';
 
+// Define everything our global state needs to keep track of
 interface AppState {
   tasks: Task[];
   sessions: FocusSession[];
@@ -26,7 +27,8 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  // 1. Initialize state from localStorage, or default to empty arrays
+  
+  // Try to load tasks from local storage first, otherwise start fresh
   const [tasks, setTasks] = useState<Task[]>(() => {
     const savedTasks = localStorage.getItem('tasksplit_tasks');
     return savedTasks ? JSON.parse(savedTasks) : [];
@@ -37,13 +39,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return savedSessions ? JSON.parse(savedSessions) : [];
   });
 
+  // State for the AI generation flow
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<Omit<SubTask, 'parentTaskId'>[] | null>(null);
   const [generatedTaskName, setGeneratedTaskName] = useState('');
   const [generatedDueDate, setGeneratedDueDate] = useState('');
   const [generatedFile, setGeneratedFile] = useState<File | null>(null);
 
-  // 2. Whenever tasks or sessions change, save them back to localStorage automatically
+  // Auto-save to local storage whenever tasks change
   useEffect(() => {
     localStorage.setItem('tasksplit_tasks', JSON.stringify(tasks));
   }, [tasks]);
@@ -52,26 +55,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('tasksplit_sessions', JSON.stringify(sessions));
   }, [sessions]);
 
-  const addTask = useCallback((task: Task) => {
-    setTasks(prev => [...prev, task]);
-  }, []);
+  // Basic CRUD functions for managing tasks
+  const addTask = useCallback((task: Task) => setTasks(prev => [...prev, task]), []);
+  const deleteTask = useCallback((taskId: string) => setTasks(prev => prev.filter(t => t.id !== taskId)), []);
+  const updateTask = useCallback((taskId: string, subTasks: SubTask[]) => setTasks(prev => prev.map(t => t.id === taskId ? { ...t, subTasks } : t)), []);
+  const updateTaskDueDate = useCallback((taskId: string, dueDate: string) => setTasks(prev => prev.map(t => t.id === taskId ? { ...t, dueDate } : t)), []);
+  const updateTaskName = useCallback((taskId: string, name: string) => setTasks(prev => prev.map(t => t.id === taskId ? { ...t, name } : t)), []);
+  const addSession = useCallback((session: FocusSession) => setSessions(prev => [...prev, session]), []);
 
-  const deleteTask = useCallback((taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-  }, []);
-
-  const updateTask = useCallback((taskId: string, subTasks: SubTask[]) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, subTasks } : t));
-  }, []);
-
-  const updateTaskDueDate = useCallback((taskId: string, dueDate: string) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, dueDate } : t));
-  }, []);
-
-  const updateTaskName = useCallback((taskId: string, name: string) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, name } : t));
-  }, []);
-
+  // Mark a specific step as done
   const completeSubTask = useCallback((subTaskId: string) => {
     setTasks(prev => prev.map(t => ({
       ...t,
@@ -79,10 +71,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })));
   }, []);
 
-  const addSession = useCallback((session: FocusSession) => {
-    setSessions(prev => [...prev, session]);
-  }, []);
-
+  // Figures out what the user should work on next (Hick's Law implementation)
   const getNextSubTask = useCallback(() => {
     for (const task of tasks) {
       const next = task.subTasks.find(st => !st.completed);
@@ -91,6 +80,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [tasks]);
 
+  // Main function that hits our Express backend to get AI tasks
   const startGeneration = useCallback(async (taskName: string, file: File | null, dueDate: string) => {
     if (!taskName.trim()) return;
     setIsGenerating(true);
@@ -99,11 +89,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setGeneratedFile(file);
 
     try {
+      // Need FormData since we might be sending a file
       const formData = new FormData();
       formData.append('taskName', taskName);
-      if (file) {
-        formData.append('file', file);
-      }
+      if (file) formData.append('file', file);
 
       const response = await fetch('http://localhost:3000/api/generate-plan', {
         method: 'POST',
@@ -113,6 +102,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!response.ok) throw new Error('Failed to fetch plan from server');
 
       const aiData = await response.json();
+      
+      // Clean up the data coming back from Gemini
       const formattedSubTasks: Omit<SubTask, 'parentTaskId'>[] = aiData.map((step: any, index: number) => ({
         id: `gen-${Date.now()}-${index}`,
         name: step.name,
@@ -126,14 +117,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Error generating tasks:", error);
       alert("Oops! The AI needs a quick break. Please try again.");
+      
+      // Fallback data just in case the API is down or there is an error.
       const GENERATED_SUBTASKS = (name: string): Omit<SubTask, 'parentTaskId'>[] => [
         { id: `gen-${Date.now()}-1`, name: `Review ${name} requirements`, difficulty: 'Easy', estimatedMinutes: 15, completed: false },
         { id: `gen-${Date.now()}-2`, name: 'Research & gather resources', difficulty: 'Medium', estimatedMinutes: 40, completed: false },
         { id: `gen-${Date.now()}-3`, name: 'Create initial outline', difficulty: 'Easy', estimatedMinutes: 20, completed: false },
         { id: `gen-${Date.now()}-4`, name: 'Draft first section', difficulty: 'Medium', estimatedMinutes: 35, completed: false },
-        { id: `gen-${Date.now()}-5`, name: 'Draft remaining sections', difficulty: 'Hard', estimatedMinutes: 50, completed: false },
-        { id: `gen-${Date.now()}-6`, name: 'Review & revise', difficulty: 'Medium', estimatedMinutes: 30, completed: false },
-        { id: `gen-${Date.now()}-7`, name: 'Final proofread & submit', difficulty: 'Easy', estimatedMinutes: 15, completed: false },
       ];
       setGeneratedPlan(GENERATED_SUBTASKS(taskName));
     } finally {
@@ -141,6 +131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Clears out temporary state if user cancel
   const resetGeneration = useCallback(() => {
     setIsGenerating(false);
     setGeneratedPlan(null);
@@ -151,31 +142,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{ 
-      tasks, 
-      sessions, 
-      activeSubTask: null, 
-      activeTaskName: '', 
-      isGenerating,
-      generatedPlan,
-      generatedTaskName,
-      generatedDueDate,
-      generatedFile,
-      addTask, 
-      updateTask, 
-      updateTaskDueDate,
-      updateTaskName,
-      completeSubTask, 
-      addSession, 
-      getNextSubTask, 
-      deleteTask,
-      startGeneration,
-      resetGeneration
+      tasks, sessions, activeSubTask: null, activeTaskName: '', isGenerating, generatedPlan,
+      generatedTaskName, generatedDueDate, generatedFile, addTask, updateTask, updateTaskDueDate,
+      updateTaskName, completeSubTask, addSession, getNextSubTask, deleteTask, startGeneration, resetGeneration
     }}>
       {children}
     </AppContext.Provider>
   );
 }
 
+// Custom hook so we don't have to import useContext everywhere
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be inside AppProvider');

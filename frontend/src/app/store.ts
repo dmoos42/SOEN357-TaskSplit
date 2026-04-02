@@ -1,4 +1,4 @@
-// Shared types for TaskSplit app
+// Keep all our TypeScript definitions in one place so things don't get messy
 
 export interface SubTask {
   id: string;
@@ -27,12 +27,14 @@ export interface FocusSession {
   completedAt: string;
 }
 
+// Used for the little difficulty tags across the app
 export const DIFFICULTY_COLORS = {
   Easy: { bg: '#E8F5E9', text: '#2E7D32', border: '#A5D6A7' },
   Medium: { bg: '#FFF3E0', text: '#E65100', border: '#FFCC80' },
   Hard: { bg: '#FFEBEE', text: '#C62828', border: '#EF9A9A' },
 }
 
+// Quick helper to turn minutes into hours + mins for the UI
 export function formatTime(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);

@@ -8,17 +8,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Set up Multer to handle file uploads in memory (no saving to disk)
+// Keep uploaded files in RAM instead of saving them to disk 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Initialize Gemini
+// Set up Gemini with the API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/api/generate-plan', upload.single('file'), async (req, res) => {
     try {
         const { taskName } = req.body;
         
-        // 1. Prepare our Prompt
+        // Tell the AI exactly how we want the data formatted
        let promptParts = [
             `You are the backend engine for "TaskSplit", an app designed to help university students overcome procrastination by breaking down large assignments.
             
@@ -34,27 +34,27 @@ app.post('/api/generate-plan', upload.single('file'), async (req, res) => {
             Keep steps small to build momentum (Hick's Law). Total steps should be between 4 and 8.`
         ];
 
-        // 2. If the user uploaded a file, attach it natively for Gemini to read.
+        // If user uploads a pdf, convert it so Gemini can read it
         if (req.file) {
             promptParts.push({
                 inlineData: {
                     data: req.file.buffer.toString("base64"),
-                    mimeType: req.file.mimetype // Automatically handles 'application/pdf', 'text/plain', etc.
+                    mimeType: req.file.mimetype 
                 }
             });
         }
 
-        // 3. Configure the AI model to output STRICT JSON
+        // Force Gemini to reply in strict JSON format so our frontend doesn't break
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.5-flash",
             generationConfig: { responseMimeType: "application/json" }
         });
 
-        // 4. Generate the response
+        // Make the request
         const result = await model.generateContent(promptParts);
         const responseText = result.response.text();
         
-        // Parse the JSON array from Gemini and send it to the frontend
+        // Turn the JSON string into a JS object and send it to the frontend
         const subTasks = JSON.parse(responseText);
         res.json(subTasks);
 

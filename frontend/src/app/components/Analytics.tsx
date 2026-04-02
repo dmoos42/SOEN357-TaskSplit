@@ -8,10 +8,13 @@ type Tab = 'overview' | 'history';
 
 export function Analytics() {
   const { tasks, sessions } = useApp();
+  
+  // States for toggling the views and tooltip
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [showScoreInfo, setShowScoreInfo] = useState(false);
   const infoRef = useRef<HTMLDivElement>(null);
 
+  // Closes the info tooltip if the user clicks anywhere else on the screen
   useEffect(() => {
     if (!showScoreInfo) return;
     const handler = (e: MouseEvent | TouchEvent) => {
@@ -27,23 +30,24 @@ export function Analytics() {
     };
   }, [showScoreInfo]);
 
+  // General Math for all the stats
   const totalCompleted = tasks.reduce((acc, t) => acc + t.subTasks.filter(st => st.completed).length, 0);
   const totalSubTasks = tasks.reduce((acc, t) => acc + t.subTasks.length, 0);
   const todaySessions = sessions.filter(s => new Date(s.completedAt).toDateString() === new Date().toDateString());
 
-  // Today-scoped metrics
   const todayMinutes = todaySessions.reduce((acc, s) => acc + s.duration, 0);
   const todayStepsDone = todaySessions.length;
   const todayFocusLabel = formatTime(todayMinutes);
 
- const streak = (() => {
+  // Calculates how many consecutive days the user has completed at least one focus session
+  const streak = (() => {
     const uniqueDays = Array.from(
       new Set(sessions.map(s => new Date(s.completedAt).toDateString()))
     );
  
     if (uniqueDays.length === 0) return 0;
  
-    // Normalize a date to midnight local time for day-level comparison
+    // Normalize to midnight so timezone shifts don't break the streak
     const toMidnight = (d: Date) => {
       const copy = new Date(d);
       copy.setHours(0, 0, 0, 0);
@@ -52,12 +56,9 @@ export function Analytics() {
  
     const todayMs = toMidnight(new Date());
     const oneDayMs = 24 * 60 * 60 * 1000;
+    const daySet = new Set(uniqueDays.map(d => toMidnight(new Date(d))));
  
-    const daySet = new Set(
-      uniqueDays.map(d => toMidnight(new Date(d)))
-    );
- 
-    // Streak must include today or yesterday — if neither, it's already broken
+    // Streak must include today or yesterday. if neither, the streak is dead
     let cursor = daySet.has(todayMs) ? todayMs : todayMs - oneDayMs;
     if (!daySet.has(cursor)) return 0;
  
@@ -69,23 +70,30 @@ export function Analytics() {
     return count;
   })();
 
+  // Focus Garden logic - The plant grows based on total completion percentage
   const growthPercent = totalSubTasks > 0 ? (totalCompleted / totalSubTasks) * 100 : 0;
   const plantStage = growthPercent < 20 ? 0 : growthPercent < 40 ? 1 : growthPercent < 60 ? 2 : growthPercent < 80 ? 3 : 4;
-  const plantEmojis = ['🌱', '🌿', '🪴', '🌳', '🌳'];
+  const plantEmojis = ['🌱', '🌿', '🪴', '🌲', '🌳'];
 
+  // Grab the last 5 sessions for the "Recent Wins" list
   const recentWins = sessions.slice(-5).reverse();
 
+  // Find assignments where ALL steps are done
   const completedAssignments = tasks
     .filter(t => t.subTasks.length > 0 && t.subTasks.every(st => st.completed))
     .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
+  // Find assignments that still need work
   const activeTasks = tasks.filter(t => t.subTasks.length > 0 && t.subTasks.some(st => !st.completed));
 
+  // Algorithm that gives them an overall "Productivity Score" out of 100
   const computeScore = (includedSessions: typeof sessions) => {
+    // 40% of score comes from raw completion volume
     const stepsScore = totalSubTasks > 0 ? (totalCompleted / totalSubTasks) * 40 : 0;
- 
+    // 30% comes from keeping a streak (maxes out at a 7-day streak)
     const streakScore = Math.min(streak / 7, 1) * 30;
  
+    // 30% comes from how many days out of the last 7 user worked
     const oneDayMs = 24 * 60 * 60 * 1000;
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const todayMs = todayStart.getTime();
@@ -104,6 +112,8 @@ export function Analytics() {
   };
 
   const productivityScore = computeScore(sessions);
+  
+  // Calculate yesterday's score so we can show a nice + or - arrow next to today's score
   const yesterdayScore = computeScore(sessions.filter(s => {
     const d = new Date(s.completedAt); d.setHours(0, 0, 0, 0);
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
@@ -112,19 +122,14 @@ export function Analytics() {
   
   const scoreDelta = productivityScore - yesterdayScore;
 
-
-
-
-
-
-
-  // Standard stat cards (first 3)
+  // Formatting for the square top cards
   const standardStats = [
     { icon: Flame, label: 'Day Streak', value: `${streak} day${streak !== 1 ? 's' : ''}`, color: '#E65100', bg: '#FFF3E0' },
     { icon: CheckCircle2, label: 'Steps Done Today', value: `${todayStepsDone}`, color: '#2E7D32', bg: '#E8F5E9' },
     { icon: Clock, label: 'Total Focus Today', value: todayFocusLabel, color: '#1565C0', bg: '#E3F2FD' },
   ];
 
+  // THE UI RENDER
   return (
     <div className="max-w-md mx-auto px-5 pt-12 pb-4" style={{ fontFamily: "'DM Sans', 'Inter', sans-serif" }}>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
@@ -132,7 +137,7 @@ export function Analytics() {
         <p className="text-muted-foreground text-[13px] mb-5">Focus on what you've accomplished</p>
       </motion.div>
 
-      {/* Tab Toggle */}
+      {/* The Overview / History toggle switches */}
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         className="bg-secondary/60 rounded-xl p-1 flex mb-6"
@@ -150,6 +155,7 @@ export function Analytics() {
                 : 'text-muted-foreground hover:text-foreground/70'
             }`}
           >
+            {/* The white slider box behind the active tab */}
             {activeTab === tab.key && (
               <motion.div
                 layoutId="activeTab"
@@ -162,6 +168,7 @@ export function Analytics() {
         ))}
       </motion.div>
 
+      {/* Switch content based on active tab */}
       <AnimatePresence mode="wait">
         {activeTab === 'overview' ? (
           <motion.div
@@ -171,7 +178,7 @@ export function Analytics() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.25 }}
           >
-            {/* Growth Visualization */}
+            {/* The Focus Garden Visualization */}
             <div className="bg-card rounded-2xl p-6 mb-5 border border-border text-center">
               <motion.div
                 initial={{ scale: 0 }} animate={{ scale: 1 }}
@@ -193,9 +200,10 @@ export function Analytics() {
               <p className="text-[12px] text-muted-foreground mt-2">{Math.round(growthPercent)}% complete</p>
             </div>
 
-            {/* Stats Grid */}
+            {/* The Grid for the smaller stats */}
             <div className="grid grid-cols-2 gap-3 mb-5">
-              {/* First 3 standard cards */}
+              
+              {/* Loop out the standard stats */}
               {standardStats.map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -211,7 +219,7 @@ export function Analytics() {
                 </motion.div>
               ))}
 
-              {/* Bottom-right: Productivity Score card */}
+              {/* Special custom card for the Productivity Score since it has the tooltip and arrows */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + 3 * 0.06 }}
@@ -222,6 +230,8 @@ export function Analytics() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <p className="text-[17px] text-foreground">{productivityScore}</p>
+                  
+                  {/* Show the change from yesterday */}
                   {scoreDelta !== 0 && (
                     <>
                       {scoreDelta > 0 ? <ArrowUpRight size={14} className="text-[#2E7D32]" />
@@ -233,6 +243,8 @@ export function Analytics() {
                     </>
                   )}
                 </div>
+                
+                {/* Tooltip trigger logic */}
                 <div className="relative" ref={infoRef}>
                   <p className="text-[12px] text-muted-foreground flex items-center gap-1 mt-0.5">
                     Productivity Score
@@ -264,7 +276,7 @@ export function Analytics() {
               </motion.div>
             </div>
 
-            {/* Task Progress Bars */}
+            {/* List out progress bars for anything the user is working on right now */}
             {activeTasks.length > 0 && (
               <div className="bg-card rounded-2xl p-5 mb-5 border border-border">
                 <h3 className="text-[14px] text-foreground mb-4 flex items-center gap-2"><Sprout size={16} className="text-primary" /> Task Progress</h3>
@@ -294,7 +306,7 @@ export function Analytics() {
               </div>
             )}
 
-            {/* Recent Wins */}
+            {/* List out the 5 most recent things the user checked off */}
             <div>
               <h3 className="text-[13px] text-muted-foreground tracking-wide uppercase mb-3 flex items-center gap-1.5">
                 <Trophy size={14} className="text-[#E65100]" /> Recent Wins
@@ -324,6 +336,8 @@ export function Analytics() {
             </div>
           </motion.div>
         ) : (
+          
+          /* The History View */
           <motion.div
             key="history"
             initial={{ opacity: 0, y: 12 }}
@@ -343,12 +357,14 @@ export function Analytics() {
 
             <div className="space-y-4">
               {completedAssignments.length === 0 ? (
+                // Empty state if the users haven't finished a full assignment yet
                 <div className="text-center py-12">
                   <div className="text-[40px] mb-3">🏆</div>
                   <p className="text-[15px] text-muted-foreground">Your trophy case is waiting</p>
                   <p className="text-[13px] text-muted-foreground/70 mt-1">Completed assignments will appear here</p>
                 </div>
               ) : (
+                // Show cards for every fully finished assignment
                 completedAssignments.map((task, i) => {
                   const totalSteps = task.subTasks.length;
                   const totalFocusMin = sessions
@@ -370,6 +386,7 @@ export function Analytics() {
                       transition={{ delay: 0.08 + i * 0.08 }}
                       className="bg-card rounded-2xl border border-primary/20 overflow-hidden"
                     >
+                      {/* Colored bar at the top of the card */}
                       <div className="h-1 bg-gradient-to-r from-[#A8D5BA] to-[#7CB69D]" />
                       <div className="p-5">
                         <div className="flex items-start gap-3.5">

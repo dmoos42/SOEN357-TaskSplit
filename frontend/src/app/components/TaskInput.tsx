@@ -8,16 +8,25 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export function TaskInput() {
   const navigate = useNavigate();
+  
+  // Grab global state functions for AI generation and adding tasks
   const { addTask, startGeneration, resetGeneration, isGenerating, generatedPlan, generatedTaskName, generatedDueDate } = useApp();
+  
+  // Local state for the initial form 
   const [taskName, setTaskName] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  
+  // State for handling the drag-and-drop file upload zone
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // State for the edit screen after Gemini responds 
   const [showEdit, setShowEdit] = useState(false);
   const [committedSubTasks, setCommittedSubTasks] = useState<Omit<SubTask, 'parentTaskId'>[]>([]);
   const [draftSubTasks, setDraftSubTasks] = useState<Omit<SubTask, 'parentTaskId'>[]>([]);
 
+  // If Gemini successfully sends back a plan, load it into our local editors
   useEffect(() => {
     if (generatedPlan) {
       setCommittedSubTasks([...generatedPlan]);
@@ -28,25 +37,31 @@ export function TaskInput() {
     setDraftSubTasks([]);
   }, [generatedPlan]);
 
+  // Make sure users only upload documents our backend can read
   const handleFileSelect = (file: File) => {
     if (file.type === 'application/pdf' || file.name.endsWith('.pdf') || file.name.endsWith('.docx') || file.name.endsWith('.txt')) {
       setUploadedFile(file);
     }
   };
 
+  // Logic for dropping a file into the dashed box
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]);
   };
 
+  // Triggers the API call to our backend
   const handleGenerate = async () => {
     await startGeneration(taskName, uploadedFile, dueDate);
   };
 
+  // Takes the final edited list and saves it to the global context
   const handleSave = () => {
     const taskId = `task-${Date.now()}`;
+    // Attach the parent ID to every subtask so we know where they belong
     const subTasks: SubTask[] = (committedSubTasks.length > 0 ? committedSubTasks : generatedPlan!).map(st => ({ ...st, parentTaskId: taskId }));
+    
     const task: Task = {
       id: taskId,
       name: generatedTaskName,
@@ -55,25 +70,30 @@ export function TaskInput() {
       subTasks,
       createdAt: new Date().toISOString().split('T')[0],
     };
+    
     addTask(task);
-    resetGeneration();
-    navigate('/');
+    resetGeneration(); // Clean up state
+    navigate('/'); // Go back home
   };
 
+  // Opens the modal where users can tweak the AI's suggestions
   const openEdit = () => {
     const base = committedSubTasks.length > 0 ? committedSubTasks : (generatedPlan || []);
     setDraftSubTasks([...base]);
     setShowEdit(true);
   };
 
+  // Simple helper to update a specific field in the draft array
   const updateSubTaskField = (idx: number, field: string, value: any) => {
     setDraftSubTasks(prev => prev.map((st, i) => i === idx ? { ...st, [field]: value } : st));
   };
 
+  // Removes a task from the draft array
   const deleteSubTask = (idx: number) => {
     setDraftSubTasks(prev => prev.filter((_, i) => i !== idx));
   };
 
+  // Swap array elements to reorder tasks up or down
   const moveSubTask = (fromIdx: number, dir: -1 | 1) => {
     const toIdx = fromIdx + dir;
     if (toIdx < 0 || toIdx >= draftSubTasks.length) return;
@@ -84,9 +104,10 @@ export function TaskInput() {
     });
   };
 
+  // THE UI RENDER
   return (
     <div className="max-w-md mx-auto px-5 pt-10 pb-4" style={{ fontFamily: "'DM Sans', 'Inter', sans-serif" }}>
-      {/* Header */}
+      {/* Top Header */}
       <div className="flex items-center gap-3 mb-8">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-xl hover:bg-secondary transition-colors">
           <ArrowLeft size={20} />
@@ -95,9 +116,10 @@ export function TaskInput() {
       </div>
 
       <AnimatePresence mode="wait">
+        {/* SCREEN 1: Input Form (Shows if we don't have an AI plan yet) */}
         {!generatedPlan ? (
           <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, x: -20 }}>
-            {/* Task Name Input */}
+            
             <div className="mb-5">
               <label className="text-[13px] text-muted-foreground mb-2 block">Assignment Name</label>
               <input
@@ -108,7 +130,6 @@ export function TaskInput() {
               />
             </div>
 
-            {/* Due Date */}
             <div className="mb-5">
               <label className="text-[13px] text-muted-foreground mb-2 block flex items-center gap-1.5"><Calendar size={13} /> Due Date</label>
               <input
@@ -119,7 +140,7 @@ export function TaskInput() {
               />
             </div>
 
-            {/* File Upload Drop Zone - Replaces Difficulty Selector */}
+            {/* Drag and Drop File Upload Area */}
             <div className="mb-8">
               <label className="text-[13px] text-muted-foreground mb-2 block flex items-center gap-1.5">
                 <Upload size={13} /> Upload Assignment
@@ -131,6 +152,8 @@ export function TaskInput() {
                 className="hidden"
                 onChange={e => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }}
               />
+              
+              {/* If no file, show the dropzone. Otherwise, show the file card. */}
               {!uploadedFile ? (
                 <div
                   onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
@@ -178,13 +201,14 @@ export function TaskInput() {
               )}
             </div>
 
-            {/* Generate Button - Error Prevention */}
+            {/* Primary Action Button */}
             <div className="space-y-2">
               <button
                 onClick={handleGenerate}
                 disabled={!taskName.trim() || !dueDate || !uploadedFile || isGenerating}
                 className="w-full bg-primary text-primary-foreground rounded-xl py-4 flex items-center justify-center gap-2.5 shadow-[0_4px_14px_rgba(124,182,157,0.4)] disabled:opacity-50 disabled:shadow-none active:scale-[0.98] transition-all duration-200"
               >
+                {/* Spin the sparkles icon if we are waiting for the API */}
                 {isGenerating ? (
                   <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
                     <Sparkles size={18} />
@@ -195,6 +219,7 @@ export function TaskInput() {
                 {isGenerating ? 'Generating Action Plan...' : 'Generate Action Plan'}
               </button>
               
+              {/* Error prevention message */}
               {(!taskName.trim() || !dueDate || !uploadedFile) && !isGenerating && (
                 <p className="text-[12px] text-muted-foreground text-center">
                   Please provide a name, due date, and file to continue.
@@ -203,8 +228,9 @@ export function TaskInput() {
             </div>
           </motion.div>
         ) : (
+          
+          /* SCREEN 2: Results View (Shows after Gemini replies) */
           <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            {/* Generated Plan - Stepped Timeline */}
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-[18px]">Your Action Plan</h2>
@@ -218,7 +244,7 @@ export function TaskInput() {
               </button>
             </div>
 
-            {/* Timeline Cards */}
+            {/* Displays the steps as a nice vertical timeline */}
             <div className="relative ml-3">
               <div className="absolute left-[7px] top-3 bottom-3 w-[2px] bg-primary/20 rounded-full" />
               <div className="space-y-3">
@@ -258,7 +284,7 @@ export function TaskInput() {
               </div>
             </div>
 
-            {/* Save Button */}
+            {/* Final Save Button */}
             <button
               onClick={handleSave}
               className="w-full mt-6 bg-primary text-primary-foreground rounded-xl py-4 flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(124,182,157,0.4)] active:scale-[0.98] transition-all duration-200"
@@ -266,6 +292,7 @@ export function TaskInput() {
               Save & Start Working
             </button>
 
+            {/* Secondary actions if user hate the AI output */}
             <div className="flex justify-center gap-4 mt-3">
               <button onClick={() => resetGeneration()} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2">
                 Start Over
@@ -281,19 +308,19 @@ export function TaskInput() {
         )}
       </AnimatePresence>
 
-      {/* Edit Modal (Screen 3) */}
+      {/* SCREEN 3: The Edit Modal (Pops up from the bottom) */}
       <AnimatePresence>
         {showEdit && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/40 z-[70] flex items-end justify-center"
-            onClick={() => setShowEdit(false)}
+            onClick={() => setShowEdit(false)} // Close if clicking outside
           >
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="bg-background rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col"
-              onClick={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()} // Keep modal open if clicking inside
             >
               <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
                 <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
@@ -311,6 +338,7 @@ export function TaskInput() {
                 </button>
               </div>
               
+              {/* Scrollable list of editable tasks */}
               <div className="px-5 overflow-y-auto flex-1 pb-4">
                 <div className="space-y-2.5">
                   {draftSubTasks.map((st, i) => (
@@ -337,7 +365,7 @@ export function TaskInput() {
                       
                       <div className="flex items-center gap-2 ml-5">
                         
-                        {/* UPGRADED DUAL INPUT FOR TIME */}
+                        {/* Dual Input for Hours and Minutes */}
                         <div className="flex items-center gap-0.5 bg-secondary rounded-lg px-2 py-1.5">
                           <Clock size={12} className="text-muted-foreground ml-1" />
                           <input
@@ -400,6 +428,7 @@ export function TaskInput() {
                 </div>
               </div>
 
+              {/* Commit changes button */}
               <div className="px-5 pb-6 pt-2 flex-shrink-0 bg-background border-t border-border/50">
                 <button
                   onClick={() => {
