@@ -295,13 +295,13 @@ export function TaskInput() {
             {/* Secondary actions if user hate the AI output */}
             <div className="flex justify-center gap-4 mt-3">
               <button onClick={() => { resetGeneration(); handleGenerate(); }} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2">
-                Start Over
+                Regenerate
               </button>
               <button 
                 onClick={() => resetGeneration()} 
                 className="text-[13px] text-primary hover:text-primary/80 transition-colors py-2"
               >
-                Regenerate
+                Start Over
               </button>
             </div>
           </motion.div>
