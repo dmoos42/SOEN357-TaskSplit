@@ -31,7 +31,7 @@ export function Dashboard() {
         <p className="text-muted-foreground text-[14px] mb-1">{greeting}</p>
         <h1 className="text-[26px] text-foreground mb-1">You're doing great ✨</h1>
         <p className="text-muted-foreground text-[13px] mb-6">
-          {activeStepsRemaining} step{activeStepsRemaining !== 1 ? 's' : ''} remaining across {ongoingTasks.length} task{ongoingTasks.length !== 1 ? 's' : ''}
+          {activeStepsRemaining} step{activeStepsRemaining !== 1 ? 's' : ''} remaining across {ongoingTasks.length} assignment{ongoingTasks.length !== 1 ? 's' : ''}
         </p>
       </motion.div>
 
